@@ -131,7 +131,7 @@ Mark it `@pytest.mark.live`. Fetch two real points for the next 6 hours. Assert 
 - Metric fixture → values converted to mph and inches.
 - Unknown unit → `ProviderError`.
 - Array length mismatch → `ProviderError`.
-- **Float trap:** rain 0.09 + showers 0.01 → exactly 0.10 → MODERATE via `classify`. Plain float addition gives `0.09999999999999999`, which is LOW. This test proves the `Decimal` path.
+- **Float trap:** rain 0.09 + showers 0.01 → exactly 0.10 → MODERATE via `classify(..., SPEC_RULES)`. Plain float addition gives `0.09999999999999999`, which is LOW. This test proves the `Decimal` path.
 - Request params include `wind_speed_unit=mph`, `precipitation_unit=inch`, `timezone=GMT` and `timeformat=unixtime`.
 
 ## Done when

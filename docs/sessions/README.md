@@ -79,7 +79,7 @@ Response ─► Route cards (12) · Route map (13) · Heatmap slider (14)
 
 | # | Session | Layer | Covers | Needs | Done |
 |---|---|---|---|---|---|
-| 01 | [Risk classifier](01-risk-classifier.md) | Backend domain | FR-03 | — | [ ] |
+| 01 | [Risk rules and classifier](01-risk-classifier.md) | Backend domain + rules source | FR-03 | — | [ ] |
 | 02 | [Route checkpoints and ETAs](02-route-checkpoints.md) | Backend domain | FR-02 | 01 | [ ] |
 | 03 | [Summaries and recommendation](03-route-ranking.md) | Backend domain | FR-04 | 01, 02 | [ ] |
 | 04 | [HERE routing adapter](04-here-routing-adapter.md) | Backend port + adapter | FR-01 | 02 | [ ] |

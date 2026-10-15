@@ -76,12 +76,14 @@ def build_frames(
     series: Sequence[HourlySeries],
     departure_at: datetime,
     load_lb: float,
+    rules: RiskRules,
 ) -> tuple[HeatmapFrame, ...]: ...
 ```
 
 - `series[i]` belongs to `points[i]`.
 - 49 frames. Offset `k` → `valid_at = departure_at + k hours`.
-- Each point gets `classify(sample_at(series[i], valid_at), load_lb).level`.
+- Each point gets `classify(sample_at(series[i], valid_at), load_lb, rules).level`.
+- `rules` comes from the caller. The checkpoints and the heatmap in one plan must use the same rules (contract → Risk policy, item 9).
 - Let any `ForecastGapError` raise. The contract fails the whole plan.
 
 ## Tests
@@ -103,7 +105,8 @@ def build_frames(
 **Frames:**
 
 - 49 frames, offsets 0..48, `valid_at = departure + k h`.
-- Constant wind 50 mph: load 30,000 → all SEVERE. Load 30,001 → all NO_TRAVEL.
+- Constant wind 50 mph with `SPEC_RULES`: load 30,000 → all SEVERE. Load 30,001 → all NO_TRAVEL.
+- The same weather with stricter rules passed in → higher levels. Proves the rules are injected.
 - A series ending 40 h after departure → `ForecastGapError`.
 - Departure 12:20 → frame 0 uses the 13:00 hour (the at-or-after rule).
 

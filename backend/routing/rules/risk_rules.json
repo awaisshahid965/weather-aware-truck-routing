@@ -1,0 +1,25 @@
+{
+  "version": "assessment-2026-10",
+  "wind_mph": [
+    {"level": "moderate", "when": ">=", "value": 25},
+    {"level": "high", "when": ">=", "value": 35},
+    {"level": "severe", "when": ">=", "value": 45},
+    {"level": "no_travel", "when": ">=", "value": 55}
+  ],
+  "rain_in_per_hour": [
+    {"level": "moderate", "when": ">=", "value": 0.10},
+    {"level": "high", "when": ">=", "value": 0.25},
+    {"level": "severe", "when": ">=", "value": 0.50},
+    {"level": "no_travel", "when": ">", "value": 1.00}
+  ],
+  "snow_in_per_hour": [
+    {"level": "moderate", "when": ">=", "value": 0.5},
+    {"level": "high", "when": ">=", "value": 1.0},
+    {"level": "severe", "when": ">=", "value": 2.0},
+    {"level": "no_travel", "when": ">", "value": 3.0}
+  ],
+  "load_overrides": [
+    {"wind_level": "severe", "load_above_lb": 30000, "result": "no_travel"},
+    {"wind_level": "high", "load_above_lb": 40000, "result": "severe"}
+  ]
+}

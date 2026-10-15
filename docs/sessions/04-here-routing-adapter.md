@@ -6,7 +6,7 @@
 | Needs | 02 (route types) |
 | Layer | Backend port + adapter |
 | Branch | `feat/here-routing-adapter` · commit type `feat(backend)` |
-| Files | `backend/routing/ports/errors.py`, `backend/routing/ports/route_provider.py`, `backend/routing/adapters/provider_http.py`, `backend/routing/adapters/here_router.py`, `backend/tests/adapters/__init__.py`, `backend/tests/adapters/test_provider_http.py`, `backend/tests/adapters/test_here_router.py`, `backend/tests/adapters/test_here_router_live.py`, `backend/tests/adapters/fixtures/here/*.json` |
+| Files | `backend/routing/ports/errors.py`, `backend/routing/ports/route_provider.py`, `backend/routing/adapters/provider_http.py`, `backend/routing/adapters/here_router.py`, `backend/tests/adapters/test_provider_http.py`, `backend/tests/adapters/test_here_router.py`, `backend/tests/adapters/test_here_router_live.py`, `backend/tests/adapters/fixtures/here/*.json` |
 
 ## Goal
 
@@ -20,6 +20,8 @@ Ask HERE for a truck route plus two alternatives. Return them as `RouteCandidate
 ## Build
 
 ### 1. Port errors (`ports/errors.py`)
+
+Add these to the file Session 01 created.
 
 ```python
 class ProviderError(Exception):

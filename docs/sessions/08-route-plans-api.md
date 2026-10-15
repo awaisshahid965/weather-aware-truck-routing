@@ -6,7 +6,7 @@
 | Needs | 07 |
 | Layer | Backend HTTP + composition root |
 | Branch | `feat/route-plans-api` · commit type `feat(backend)` |
-| Files | `backend/routing/bootstrap.py`, `backend/routing/http/serializers.py`, `backend/routing/http/views.py`, `backend/routing/http/urls.py`, `backend/routing/http/errors.py`, `backend/routing/http/middleware.py`, `backend/routing/domain/geometry.py`, `backend/config/settings.py` (two entries), `backend/tests/http/test_route_plans.py`, `backend/tests/http/test_middleware.py`, `backend/tests/http/test_route_plans_live.py`, `backend/tests/domain/test_geometry.py` |
+| Files | `backend/routing/bootstrap.py`, `backend/routing/checks.py`, `backend/routing/apps.py`, `backend/tests/test_checks.py`, `backend/routing/http/serializers.py`, `backend/routing/http/views.py`, `backend/routing/http/urls.py`, `backend/routing/http/errors.py`, `backend/routing/http/middleware.py`, `backend/routing/domain/geometry.py`, `backend/config/settings.py` (two entries), `backend/tests/http/test_route_plans.py`, `backend/tests/http/test_middleware.py`, `backend/tests/http/test_route_plans_live.py`, `backend/tests/domain/test_geometry.py` |
 
 ## Goal
 
@@ -24,8 +24,16 @@
 - Name the [contract limits](contract.md#limits) as module constants.
 - Build one shared `httpx.Client` with the connect and read timeouts. Close it with `atexit`.
 - Read `settings.HERE_API_KEY`. When it is empty, raise `ImproperlyConfigured` with a clear message on first use.
-- Build `HereRouter`, `OpenMeteoForecast` and `PlanTripService`. Pass `clock=lambda: datetime.now(UTC)`.
+- `RISK_RULES_PATH = Path(__file__).resolve().parent / 'rules' / 'risk_rules.json'`.
+- `build_risk_rules_source()` returns `JsonRiskRules(RISK_RULES_PATH)`, uncached. `get_risk_rules_source()` caches it. Switching to a database later replaces this one function.
+- Build `HereRouter`, `OpenMeteoForecast` and `PlanTripService`, passing `get_risk_rules_source()`. Pass `clock=lambda: datetime.now(UTC)`.
 - Expose `get_plan_trip_service()`, cached so it builds once.
+
+### 1b. Fail the deploy on bad rules (`routing/checks.py`)
+
+- A Django system check calls `bootstrap.build_risk_rules_source()`. On `RiskRulesUnavailableError` it returns `Error(..., id='routing.E001')` with the reason.
+- Register it in `RoutingConfig.ready()` (`routing/apps.py`) with `register(check_risk_rules)`. An explicit call needs no side-effect import.
+- The container runs `check --deploy` before serving, and CI runs it too. A bad rules file then stops the deploy, not the first request. `runserver` runs it on start.
 
 ### 2. Request serializer (`http/serializers.py`)
 
@@ -105,11 +113,13 @@ Override the service with a fake: `monkeypatch.setattr(bootstrap, 'get_plan_trip
 - `/healthz` still answers and logs nothing.
 - **Secrets:** set `settings.HERE_API_KEY` to a sentinel. It never appears in any body or log record.
 - **Simplify:** collinear points → endpoints only. Max deviation ≤ tolerance. Endpoints always kept.
+- **Rules check:** the shipped file → no errors. `RISK_RULES_PATH` pointed at a broken file (`monkeypatch`) → one `routing.E001` naming the reason.
 
 ## Done when
 
 - [ ] `uv run poe check` passes. The import contracts confirm `http` reaches adapters only through `bootstrap`.
 - [ ] `curl -X POST localhost:8000/api/v1/route-plans` with a real key returns a plan or a contract error.
+- [ ] Breaking `risk_rules.json` locally makes `uv run python manage.py check` fail with `routing.E001`. Restore the file afterwards.
 
 ## Not in this session
 
@@ -122,3 +132,4 @@ Override the service with a fake: `monkeypatch.setattr(bootstrap, 'get_plan_trip
 - Views must call `bootstrap.get_plan_trip_service()` through the module. Importing the function directly defeats `monkeypatch`.
 - DRF's handler covers exceptions raised in views only. Middleware errors still get Django's plain 500.
 - `extra=` keys must not reuse `LogRecord` attribute names such as `name`, `message`, `module` or `args`. `logging` raises `KeyError` if they do.
+- The system check must use the **uncached** builder. A cached failure, or a cached good file, would hide the real state of the file.

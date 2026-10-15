@@ -16,7 +16,7 @@ One method runs the whole pipeline. It talks only to ports. Tests use fakes.
 
 - [Contract → `POST /api/v1/route-plans`](contract.md#post-apiv1route-plans): the validation list.
 - [Contract → Errors](contract.md#errors) and [Limits](contract.md#limits).
-- [Contract → Risk policy](contract.md#risk-policy), items 7–8.
+- [Contract → Risk policy](contract.md#risk-policy), items 7–9.
 
 ## Build
 
@@ -55,6 +55,7 @@ class TripPlan:
     recommended_index: int | None
     heatmap: tuple[HeatmapFrame, ...]
     notices: tuple[str, ...]
+    rules_version: str  # which rules produced this plan
 ```
 
 ### Service errors (`services/errors.py`)
@@ -78,6 +79,7 @@ class PlanTripService:
         self,
         routes: RouteProvider,
         forecast: ForecastProvider,
+        risk_rules: RiskRulesSource,
         *,
         clock: Callable[[], datetime],
         max_route_miles: float,
@@ -104,12 +106,13 @@ Inject the clock. Tests need a fixed "now". The composition root (Session 08) pa
 6. **Dedupe forecast points.** Take all checkpoints plus corridor points. A point within `forecast_dedupe_miles` of a kept point reuses it. Keep an index map from original point to kept point.
 7. **Window.** Start is `departure_at` floored to the hour. End is `max(last ETA, departure + 48 h)` ceiled to the hour.
 8. **Fetch.** `forecast.hourly(kept_points, start, end)`, as one call.
-9. **Classify.** For each checkpoint: `sample_at` → `classify` → `AssessedCheckpoint`.
-10. **Summaries** (Session 03) and **frames** (Session 06).
-11. **Recommend.** If `None`, add the No Travel notice.
-12. **Notices.** Always add: "Forecast risk is an estimate, not a road-closure or dispatch clearance."
-13. **Gaps.** A `ForecastGapError` anywhere → `ForecastUnavailableError`. Never return a partial plan.
-14. **Log** one line: `logger.info('trip planned', extra={...})` with route count, checkpoint count, forecast point count and elapsed ms. Never log labels or coordinates.
+9. **Rules.** `rules = self._risk_rules.current()`, **once**. Pass this one value to every `classify` and to `build_frames`. A rule change mid-request then can't mix two rule sets in one plan.
+10. **Classify.** For each checkpoint: `sample_at` → `classify(..., rules)` → `AssessedCheckpoint`.
+11. **Summaries** (Session 03) and **frames** (Session 06, with the same `rules`).
+12. **Recommend.** If `None`, add the No Travel notice.
+13. **Notices.** Always add: "Forecast risk is an estimate, not a road-closure or dispatch clearance."
+14. **Gaps.** A `ForecastGapError` anywhere → `ForecastUnavailableError`. Never return a partial plan.
+15. **Log** one line: `logger.info('trip planned', extra={...})` with `rules_version`, route count, checkpoint count, forecast point count and elapsed ms. Never log labels or coordinates.
 
 ## Tests
 
@@ -117,6 +120,7 @@ Inject the clock. Tests need a fixed "now". The composition root (Session 08) pa
 
 - `FakeRouteProvider(routes)` records its calls.
 - `FakeForecastProvider(values_at)` builds series from `values_at(point, hour)`. It records the requested points and window. `max_lead_hours` is settable.
+- `FakeRiskRulesSource(rules)` returns the given rules (default `SPEC_RULES`) and counts calls.
 
 Cases:
 
@@ -132,6 +136,8 @@ Cases:
 - Same origin and destination → `InputValidationError`.
 - Route over `max_route_miles` → `InputValidationError`. Forecast never called.
 - Fake raises `ProviderTimeoutError` → `UpstreamTimeoutError`, with the original as `__cause__`.
+- **Rules:** `current()` is called exactly once per `run()`. `TripPlan.rules_version` matches the source.
+- **Rules are injected:** the same weather with stricter rules → a different recommendation or summary.
 
 ## Done when
 
@@ -147,3 +153,4 @@ Cases:
 - One forecast call for everything, not one per route.
 - Dedupe is O(n²). That's fine at a few hundred points. Measure before optimizing.
 - Services never read Django settings. Every limit arrives through the constructor.
+- Don't call `current()` inside the per-checkpoint loop. Once per plan, or a database source could change rules mid-plan.
