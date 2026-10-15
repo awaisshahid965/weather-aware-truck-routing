@@ -9,9 +9,11 @@ These plans build the project's foundation: repository tooling, a Django API ske
 | 1 | [01-repository.md](01-repository.md) | Root files: git hooks, commit rules, editor settings, Dependabot, README, contributing guide, license |
 | 2 | [02-backend.md](02-backend.md) | `backend/`: Django 6.1 + DRF API skeleton, with Docker image and CI |
 | 3 | [03-frontend.md](03-frontend.md) | `frontend/`: Next.js 16 + React 19 app skeleton, with Docker image and CI |
+| 4 | [04-local-stack.md](04-local-stack.md) | Root scripts that set up, run, check, and format both apps, plus `compose.yaml` to run the production images together, with CI |
 
 - Run plan 01 first. It installs the git hooks that the other two plug into.
 - Plans 02 and 03 do not depend on each other. Run them in either order.
+- Run plan 04 last. It needs both apps in place.
 - Each plan is self-contained: prerequisites, versions, every file's full content, every command, verification, and the commit.
 - Each plan is one branch and one pull request.
 

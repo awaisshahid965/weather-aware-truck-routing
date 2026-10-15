@@ -1,2 +1,6 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Store text files with LF line endings on every platform.
+* text=auto eol=lf
+
+# Generated lockfiles: collapsed in GitHub diffs.
+package-lock.json linguist-generated=true
+uv.lock linguist-generated=true

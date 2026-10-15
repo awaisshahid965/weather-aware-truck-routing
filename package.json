@@ -1,0 +1,37 @@
+{
+  "name": "weather-aware-truck-routing",
+  "private": true,
+  "description": "Repository tooling: git hooks and commands that run both apps.",
+  "engines": {
+    "node": ">=24.22.0",
+    "npm": ">=11.19.1"
+  },
+  "packageManager": "npm@11.19.1",
+  "scripts": {
+    "prepare": "husky",
+    "lint-staged": "lint-staged",
+    "setup": "npm run setup:backend && npm run setup:frontend",
+    "setup:backend": "uv --directory backend sync && (test -f backend/.env || cp backend/.env.example backend/.env)",
+    "setup:frontend": "npm --prefix frontend install && (test -f frontend/.env.local || cp frontend/.env.example frontend/.env.local)",
+    "dev": "concurrently --names api,web --prefix-colors blue,magenta --kill-others \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "uv --directory backend run poe dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "check": "npm run check:root && npm run check:backend && npm run check:frontend",
+    "check:root": "prettier --check .",
+    "check:backend": "uv --directory backend run poe check",
+    "check:frontend": "npm --prefix frontend run check",
+    "format": "npm run format:root && npm run format:backend && npm run format:frontend",
+    "format:root": "prettier --write .",
+    "format:backend": "uv --directory backend run poe format",
+    "format:frontend": "npm --prefix frontend run format",
+    "stack:up": "docker compose up --build --wait && echo 'Web app: http://localhost:3000   API: http://localhost:8000/api/v1/'",
+    "stack:down": "docker compose down",
+    "stack:logs": "docker compose logs --follow"
+  },
+  "devDependencies": {
+    "concurrently": "10.0.6",
+    "husky": "9.1.7",
+    "lint-staged": "17.6.0",
+    "prettier": "3.9.10"
+  }
+}
