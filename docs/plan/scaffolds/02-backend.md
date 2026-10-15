@@ -479,6 +479,9 @@ LOGGING = {
     # same format. `django.server` (runserver's access log) keeps its defaults.
     'loggers': {
         'django': {'handlers': [], 'level': LOG_LEVEL, 'propagate': True},
+        # httpx logs each request's full URL at INFO. Provider keys travel in the
+        # query string, so httpx records below WARNING are dropped.
+        'httpx': {'level': 'WARNING'},
     },
 }
 
