@@ -1,0 +1,17 @@
+# Local environment and secrets
+.env
+.env.*
+.venv
+
+# Caches and test artefacts
+**/__pycache__
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.import_linter_cache
+.hypothesis
+
+# Not needed at runtime
+tests
+Dockerfile
+.dockerignore

@@ -1,0 +1,121 @@
+[project]
+name = "weather-aware-truck-routing-backend"
+version = "0.1.0"
+description = "Django REST API for weather-aware truck routing."
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "django==6.1.2",
+    "django-cors-headers==4.9.0",
+    "djangorestframework==3.18.3",
+    "flexpolyline==0.1.0", # decodes HERE route geometry
+    "gunicorn==26.2.0",
+    "httpx==0.28.1",
+    "tzdata==2026.5", # time zone data that does not depend on the OS image
+]
+
+[dependency-groups]
+dev = [
+    "django-stubs==6.1.2",
+    "djangorestframework-stubs==3.18.1",
+    "hypothesis==6.169.1",
+    "import-linter==2.15",
+    "mypy==2.4.0",
+    "poethepoet==0.48.0",
+    "pytest==9.1.1",
+    "pytest-django==4.14.0",
+    "ruff==0.17.0",
+]
+
+[tool.uv]
+required-version = ">=0.13.1"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "single"
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # import sorting
+    "N",   # pep8 naming
+    "UP",  # modern syntax for the target Python
+    "B",   # likely bugs
+    "A",   # shadowed builtins
+    "C4",  # comprehensions
+    "DTZ", # naive datetimes
+    "T20", # print statements
+    "SIM", # simplifications
+    "RET", # return consistency
+    "PT",  # pytest style
+    "S",   # security
+    "DJ",  # Django
+    "RUF", # Ruff-specific
+]
+ignore = ["E501"] # the formatter owns line length
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"] # pytest asserts
+
+[tool.ruff.lint.isort]
+known-first-party = ["config", "routing"]
+
+[tool.mypy]
+strict = true
+files = ["config", "routing", "tests", "manage.py", "gunicorn.conf.py"]
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+
+[tool.django-stubs]
+django_settings_module = "config.settings"
+
+[tool.pytest]
+DJANGO_SETTINGS_MODULE = "config.settings"
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config", "-ra", "-m", "not live"]
+markers = ["live: calls real third-party APIs; run with `uv run poe test:live`"]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.importlinter]
+root_packages = ["routing"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Core layers depend inward: services -> ports -> domain"
+type = "layers"
+layers = ["routing.services", "routing.ports", "routing.domain"]
+
+[[tool.importlinter.contracts]]
+name = "The core does not import frameworks, HTTP clients, adapters or the HTTP layer"
+type = "forbidden"
+source_modules = ["routing.domain", "routing.ports", "routing.services"]
+forbidden_modules = ["django", "rest_framework", "corsheaders", "httpx", "flexpolyline", "routing.adapters", "routing.http"]
+
+[[tool.importlinter.contracts]]
+name = "Adapters do not import services or the HTTP layer"
+type = "forbidden"
+source_modules = ["routing.adapters"]
+forbidden_modules = ["routing.services", "routing.http"]
+
+[[tool.importlinter.contracts]]
+name = "The HTTP layer reaches adapters only through the composition root"
+type = "forbidden"
+source_modules = ["routing.http"]
+forbidden_modules = ["routing.adapters"]
+allow_indirect_imports = true
+
+[tool.poe.tasks]
+dev = { cmd = "python manage.py runserver", envfile = ".env", help = "Run the development server on http://localhost:8000" }
+format = { cmd = "ruff format .", help = "Format all Python files" }
+"format:check" = { cmd = "ruff format --check .", help = "Fail if any file needs formatting" }
+lint = { sequence = [{ cmd = "ruff check ." }, { cmd = "lint-imports" }], help = "Lint code and check layer boundaries" }
+"lint:fix" = { cmd = "ruff check --fix .", help = "Apply safe lint fixes" }
+typecheck = { cmd = "mypy", help = "Type-check with mypy (strict)" }
+test = { cmd = "pytest", help = "Run the test suite (live provider tests excluded)" }
+"test:live" = { cmd = "pytest -m live", envfile = ".env", help = "Run only the tests that call real provider APIs" }
+"check:deploy" = { cmd = "python manage.py check --deploy --fail-level WARNING", help = "Validate production settings" }
+check = { sequence = ["format:check", "lint", "typecheck", "test"], help = "Run every check CI runs" }
