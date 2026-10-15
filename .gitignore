@@ -1,0 +1,12 @@
+# Root tooling dependencies (each app ignores its own)
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors: share only the recommended extensions and workspace settings
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
