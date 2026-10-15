@@ -1,0 +1,40 @@
+# Runs the production images together on this machine: one command for anyone who
+# wants the whole app without installing Python or Node. Day-to-day development uses
+# `npm run dev` instead (native dev servers, instant reload).
+
+name: weather-aware-truck-routing
+
+services:
+  backend:
+    build:
+      context: backend
+    image: truck-routing-backend:local
+    # The image's default command runs `manage.py check --deploy`, which demands HTTPS.
+    # This stack serves plain HTTP on localhost, so it starts gunicorn directly and
+    # turns off the HTTPS-only settings below. Production keeps the image's command.
+    command: ['gunicorn', 'config.wsgi']
+    environment:
+      DJANGO_DEBUG: 'false'
+      DJANGO_SECRET_KEY: local-compose-only-key-never-use-in-production
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      DJANGO_SECURE_SSL_REDIRECT: 'false'
+      DJANGO_SECURE_HSTS_SECONDS: '0'
+      HERE_API_KEY: ${HERE_API_KEY:-}
+    ports:
+      - '8000:8000'
+
+  frontend:
+    build:
+      context: frontend
+      # Inlined into the browser bundle at build time. The browser runs on the host,
+      # so it reaches the API through the published port on localhost.
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/api/v1
+        NEXT_PUBLIC_MAP_STYLE_URL: https://tiles.openfreemap.org/styles/liberty
+    image: truck-routing-frontend:local
+    ports:
+      - '3000:3000'
+    depends_on:
+      backend:
+        condition: service_healthy

@@ -15,10 +15,30 @@ requirements.md    Product requirements
 
 ## Getting started
 
-1. Install Node.js 24.22.0 (`nvm use` reads `.nvmrc`).
-2. Run `npm install` in the repository root. This installs the git hooks.
-3. Set up the API: [backend/README.md](backend/README.md).
-4. Set up the web app: [frontend/README.md](frontend/README.md).
+1. Install the tools: Node.js 24.22.0 (`nvm use` reads `.nvmrc`) and [uv](https://docs.astral.sh/uv/) 0.13.1 or newer.
+2. Run `npm install` in the repository root. This installs the git hooks and the root tools.
+3. Run `npm run setup`. This installs both apps and creates their local env files.
+4. Run `npm run dev`. The web app is on http://localhost:3000, the API on http://localhost:8000.
+
+Each app's README has more detail: [backend/README.md](backend/README.md), [frontend/README.md](frontend/README.md).
+
+## Run everything
+
+All commands run from the repository root. `npm run` lists them.
+
+| Command | What it does |
+|---|---|
+| `npm run setup` | Install both apps and create missing local env files |
+| `npm run dev` | Both dev servers. Ctrl+C stops both. |
+| `npm run check` | Every check for root config, backend, and frontend |
+| `npm run format` | Format everything |
+| `npm run stack:up` | Build the production images and run them with Docker Compose |
+| `npm run stack:down` | Stop the Docker stack |
+| `npm run stack:logs` | Follow the Docker stack's logs |
+
+`npm run dev` and `npm run stack:up` both use ports 3000 and 8000. Run one at a time.
+
+The Docker stack runs the production images over plain HTTP on localhost. It turns off the backend's HTTPS-only settings for that reason. See the comments in `compose.yaml`.
 
 ## Contributing
 

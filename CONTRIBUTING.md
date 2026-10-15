@@ -2,7 +2,10 @@
 
 ## Setup
 
-Run `npm install` once in the repository root, with Node.js 24.22.0. It installs the git hooks. Each app's README covers the rest of its setup.
+With Node.js 24.22.0 and uv installed, run these once in the repository root:
+
+1. `npm install`: installs the git hooks and root tools.
+2. `npm run setup`: installs both apps and creates their local env files.
 
 ## Branches
 
@@ -46,12 +49,9 @@ Do not skip hooks with `--no-verify`. If a hook is wrong, fix the hook.
 
 ## Before opening a pull request
 
-Run the full check for each app you changed. CI runs the same commands.
+Run `npm run check` in the repository root. It runs the root formatting check and every backend and frontend check. CI runs the same app checks.
 
-| App | Command |
-|---|---|
-| Backend | `cd backend && uv run poe check` |
-| Frontend | `cd frontend && npm run check` |
+To check one app only: `npm run check:backend` or `npm run check:frontend`.
 
 Fill in the pull request template: what changed, why, and how you tested it.
 
