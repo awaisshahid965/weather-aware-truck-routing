@@ -2,6 +2,7 @@
 
 import math
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 
 
@@ -54,3 +55,65 @@ class WeatherSample:
 class RiskAssessment:
     level: RiskLevel
     drivers: tuple[Condition, ...]  # conditions tied at `level`; empty when LOW
+
+
+@dataclass(frozen=True, slots=True)
+class GeoPoint:
+    latitude: float
+    longitude: float
+
+    def __post_init__(self) -> None:
+        # NaN fails these comparisons too, so it is rejected with the out-of-range values.
+        if not -90 <= self.latitude <= 90:
+            raise ValueError(f'latitude must be within [-90, 90], got {self.latitude!r}')
+        if not -180 <= self.longitude <= 180:
+            raise ValueError(f'longitude must be within [-180, 180], got {self.longitude!r}')
+
+
+@dataclass(frozen=True, slots=True)
+class RouteSection:
+    """One provider section. Its length is the distance that counts; the shape only places points along it."""
+
+    points: tuple[GeoPoint, ...]  # decoded shape, at least 2 points
+    length_miles: float  # from the provider, > 0
+    duration_seconds: float  # from the provider, >= 0
+
+    def __post_init__(self) -> None:
+        if len(self.points) < 2:
+            raise ValueError(f'a section needs at least 2 points, got {len(self.points)}')
+        # Sampling divides by the length to find how far into the section a mile falls.
+        if not (math.isfinite(self.length_miles) and self.length_miles > 0):
+            raise ValueError(f'length_miles must be finite and > 0, got {self.length_miles!r}')
+        require_non_negative('duration_seconds', self.duration_seconds)
+
+
+@dataclass(frozen=True, slots=True)
+class RouteCandidate:
+    provider_index: int  # 0-based provider order
+    sections: tuple[RouteSection, ...]
+
+    def __post_init__(self) -> None:
+        if self.provider_index < 0:
+            raise ValueError(f'provider_index must be >= 0, got {self.provider_index}')
+        if not self.sections:
+            raise ValueError('a route needs at least 1 section')
+
+    # fsum gives one correctly rounded total, whatever the order. Sampling relies on that
+    # to put the destination exactly at `distance_miles` and `duration_seconds`.
+    @property
+    def distance_miles(self) -> float:
+        return math.fsum(section.length_miles for section in self.sections)
+
+    @property
+    def duration_seconds(self) -> float:
+        return math.fsum(section.duration_seconds for section in self.sections)
+
+
+@dataclass(frozen=True, slots=True)
+class Checkpoint:
+    """A place on a route where the weather is checked, at the time the truck gets there."""
+
+    distance_from_start_miles: float
+    point: GeoPoint
+    eta_at: datetime  # aware UTC
+    cell_miles: float  # the stretch of road this checkpoint's weather stands for
