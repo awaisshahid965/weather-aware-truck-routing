@@ -152,6 +152,8 @@ Gunicorn kills a request after 60 s (scaffold). The deadlines keep a full plan w
 
 ## Risk policy
 
+The thresholds and load overrides below live in `backend/routing/rules/risk_rules.json`, version `assessment-2026-10`. That file is the single source of the values. A test pins it to this section, and a startup check rejects an invalid file.
+
 1. Risk levels are ordered `low`, `moderate`, `high`, `severe`, `no_travel`, with scores 0–4.
 2. At shared boundaries, the more dangerous level starts **at** the boundary, except for the rain and snow No Travel cuts:
    - wind `<25`, `[25,35)`, `[35,45)`, `[45,55)`, `>=55`
@@ -180,6 +182,7 @@ Gunicorn kills a request after 60 s (scaffold). The deadlines keep a full plan w
    - Among eligible routes, use these priorities in order: `severeMiles`, then `highMiles`, then `averageRisk`, then `durationSeconds`. A full tie goes to provider order.
    - No Travel miles show on every card, even though the four priorities don't mention them.
 8. If any checkpoint, or any of the 49 heatmap frames, lacks a valid forecast, the whole plan fails with `FORECAST_UNAVAILABLE`. Unknown weather is never treated as Low. There is no recommendation from partial data.
+9. Rules are read once per plan. Every checkpoint and heatmap frame in one plan uses the same rules. The rules version is logged with each plan.
 
 ## Heatmap policy
 
@@ -228,5 +231,6 @@ Reference: [docs](https://open-meteo.com/en/docs). The free public API is for no
 ## Product boundaries
 
 - No accounts, saved trips, database, cache or background jobs. Add one only for a measured need.
+- Risk rules change by editing `risk_rules.json` and deploying. They sit behind the `RiskRulesSource` port, so a database-backed source with an admin can replace the JSON adapter later without touching the classifier. That needs a database, which is out of scope now.
 - Load weight drives weather risk only. It is not sent to routing as truck weight; HERE uses its default truck profile.
 - The frontend never classifies risk or ranks routes. The API is authoritative.

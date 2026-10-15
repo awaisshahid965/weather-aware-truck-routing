@@ -47,6 +47,8 @@ Each line must point to a test that passes:
 - [ ] Load exactly 30,000 and 40,000 → no override.
 - [ ] Rain 1.00 and snow 3.0 → Severe.
 - [ ] Rain 0.09 + showers 0.01 → Moderate.
+- [ ] The shipped `risk_rules.json` equals the spec values.
+- [ ] A broken `risk_rules.json` → `manage.py check` fails with `routing.E001`.
 
 ### 5. Browser and performance check
 
@@ -62,6 +64,7 @@ Add two sections to the root `README.md`. The requirements ask for policies to b
 **Implementation policies.** Mark each one as our choice, not a requirement:
 
 - Boundary rules ([contract → Risk policy](contract.md#risk-policy), item 2).
+- Risk rules live in `backend/routing/rules/risk_rules.json`, with a version. Changing them means editing the file and deploying. A database-backed source can replace the file later.
 - Combined risk = max; drivers = ties.
 - Forecast hour = first hour at or after the moment.
 - Cell miles by midpoints. Average risk weighted by distance.
