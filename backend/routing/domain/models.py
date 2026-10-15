@@ -117,3 +117,47 @@ class Checkpoint:
     point: GeoPoint
     eta_at: datetime  # aware UTC
     cell_miles: float  # the stretch of road this checkpoint's weather stands for
+
+
+@dataclass(frozen=True, slots=True)
+class AssessedCheckpoint:
+    checkpoint: Checkpoint
+    weather: WeatherSample
+    risk: RiskAssessment
+
+
+@dataclass(frozen=True, slots=True)
+class RouteSummary:
+    """How much of a route sits at each risky level. Level miles are exclusive: a No Travel cell is not Severe."""
+
+    no_travel_miles: float
+    severe_miles: float
+    high_miles: float
+    average_risk: float  # mile-weighted mean score, 0 to 4; unrounded, because ranking compares it
+    worst_risk: RiskLevel
+
+    def __post_init__(self) -> None:
+        # Ranking compares these. NaN fails every comparison, so the winner would depend on input order.
+        require_non_negative('no_travel_miles', self.no_travel_miles)
+        require_non_negative('severe_miles', self.severe_miles)
+        require_non_negative('high_miles', self.high_miles)
+        require_non_negative('average_risk', self.average_risk)
+
+
+@dataclass(frozen=True, slots=True)
+class RankInput:
+    """What the recommendation needs to know about one route."""
+
+    provider_index: int  # 0-based provider order; breaks a full tie
+    duration_seconds: float
+    summary: RouteSummary
+
+    def __post_init__(self) -> None:
+        if self.provider_index < 0:
+            raise ValueError(f'provider_index must be >= 0, got {self.provider_index}')
+        require_non_negative('duration_seconds', self.duration_seconds)
+
+
+@dataclass(frozen=True, slots=True)
+class Recommendation:
+    provider_index: int | None  # None when every route has No Travel miles
