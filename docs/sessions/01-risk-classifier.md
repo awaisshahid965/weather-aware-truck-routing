@@ -237,8 +237,8 @@ Use `pytest.mark.parametrize` tables. Pass `SPEC_RULES` to every call.
 
 ## Done when
 
-- [ ] `uv run poe check` passes: format, Ruff, import contracts, mypy strict, tests.
-- [ ] No rule value appears in `routing/` outside the JSON file.
+- [x] `uv run poe check` passes: format, Ruff, import contracts, mypy strict, tests.
+- [x] No rule value appears in `routing/` outside the JSON file.
 
 ## Not in this session
 

@@ -121,7 +121,7 @@ def build_checkpoints(route: RouteCandidate, interval_miles: int, departure_at: 
 
 ## Done when
 
-- [ ] `uv run poe check` passes.
+- [x] `uv run poe check` passes.
 
 ## Not in this session
 
