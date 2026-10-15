@@ -1,0 +1,8 @@
+{
+  "title": "Malformed request",
+  "status": 400,
+  "code": "E605001",
+  "cause": "Error while parsing request:\n  Invalid value for parameter 'origin' at 'not-a-place'\n  Invalid waypoint at 'not-a-place'\n  Invalid place at 'not-a-place'\n  Invalid location at 'not-a-place'",
+  "action": "",
+  "correlationId": "da860425-96e0-4101-b96d-e6303759a260"
+}
