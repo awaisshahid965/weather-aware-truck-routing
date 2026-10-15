@@ -1,0 +1,30 @@
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: /backend
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+      include: scope
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+      include: scope
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+      include: scope
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+      include: scope
