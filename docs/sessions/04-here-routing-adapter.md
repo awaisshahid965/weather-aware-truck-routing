@@ -74,10 +74,10 @@ Check it holds 3 routes. Then hand-edit small variants:
 | Fixture | Edit |
 |---|---|
 | `routes_one.json` | Keep one route |
-| `routes_empty.json` | `"routes": []` |
+| `routes_empty.json` | Recorded: `origin=999,999`. HERE answers 200 with `"routes": []` and a `couldNotMatchOrigin` notice |
 | `routes_duplicate.json` | Two routes with identical section polylines |
 | `routes_bad_section.json` | A section without `polyline` |
-| `error_400.json` | A HERE error body |
+| `error_400.json` | Recorded: `origin=not-a-place`. HERE answers 400 with its error body |
 
 ### 5. Adapter (`adapters/here_router.py`)
 
@@ -141,3 +141,4 @@ Use `httpx.MockTransport`. No network.
 - HERE flexible polyline is not Google's polyline format.
 - Ruff rule `S311` flags `random` used for jitter. Jitter isn't security-sensitive. Add `# noqa: S311` on that one line, with the reason.
 - Don't send load as truck weight. Load only drives weather risk (contract → Product boundaries).
+- httpx logs every request's full URL at INFO, key included. The backend scaffold sets the `httpx` logger to WARNING. The `caplog` key test runs at DEBUG, so it fails if that setting goes.

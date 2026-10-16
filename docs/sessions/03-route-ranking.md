@@ -120,7 +120,7 @@ It is **not** in the [contract](contract.md). Add it to the contract first, or s
 
 ## Done when
 
-- [ ] `uv run poe check` passes.
+- [x] `uv run poe check` passes.
 
 ## Not in this session
 
