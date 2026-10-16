@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import TripService from '@/shared/services/trip-service'
 import type { RoutePlan } from '@/shared/types/route-plan'
+import { formatDuration } from '@/shared/utils/format'
 import { checkpointsToFeatures, heatmapFrameCollections, routesToFeatures } from '@/shared/utils/geojson'
 import { makeRoutePlan } from '../../../../tests/factories/route-plan'
 import RouteMap from './route-map'
@@ -273,6 +274,27 @@ describe('RouteMap', () => {
         view.rerender(<RouteMap plan={makeRoutePlan()} selectedRouteId="route-2" />)
 
         expect(screen.getByText(/Choose a checkpoint/)).toBeInTheDocument()
+    })
+
+    it('shows the selected route’s summary on the map, with its recommendation', () => {
+        const plan = makeRoutePlan()
+        renderMap(plan, 'route-2')
+
+        const summary = within(screen.getByRole('region', { name: 'Route 2' }))
+        expect(summary.getByText('Selected route')).toBeInTheDocument()
+        expect(summary.getByText('Recommended')).toBeInTheDocument()
+        expect(summary.getByText(formatDuration(plan.routes[1]?.durationSeconds ?? 0))).toBeInTheDocument()
+        for (const label of ['No Travel miles', 'Severe miles', 'High miles', 'Average risk (0–4)', 'Worst risk']) {
+            expect(summary.getByText(label)).toBeInTheDocument()
+        }
+    })
+
+    it('shows a route that isn’t recommended without the badge', () => {
+        renderMap(makeRoutePlan(), 'route-1')
+
+        const summary = within(screen.getByRole('region', { name: 'Route 1' }))
+        expect(summary.getByText('Selected route')).toBeInTheDocument()
+        expect(summary.queryByText('Recommended')).not.toBeInTheDocument()
     })
 
     it('labels every risk color in the legend', () => {

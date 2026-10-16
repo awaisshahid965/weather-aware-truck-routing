@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { useId } from 'react'
+import RiskBadge from '@/shared/components/risk-badge/risk-badge'
 import { RISK_LEVELS } from '@/shared/types/risk'
 import { RISK_COLORS, RISK_LABELS } from '@/shared/utils/risk-display'
 import useWeatherTimeline from './hooks/use-weather-timeline'
@@ -20,7 +21,7 @@ const WeatherTimeline: FC<WeatherTimelineProps> = ({
 }) => {
     const headingId = useId()
     const sliderId = useId()
-    const { label, handleHourChange } = useWeatherTimeline({ frames, timeZone, hour, onHourChange })
+    const { label, worstRisk, handleHourChange } = useWeatherTimeline({ frames, timeZone, hour, onHourChange })
 
     return (
         <section aria-labelledby={headingId} className="flex flex-col gap-3 text-sm">
@@ -61,6 +62,14 @@ const WeatherTimeline: FC<WeatherTimelineProps> = ({
                     <span>Departure</span>
                     <span>+{LAST_HOUR} h</span>
                 </div>
+                {worstRisk === 'low' && (
+                    <p className="text-neutral-800">Every point is Low at this hour, so the heatmap is clear.</p>
+                )}
+                {worstRisk !== null && worstRisk !== 'low' && (
+                    <p className="flex items-center gap-1.5 text-neutral-800">
+                        Highest risk at this hour: <RiskBadge risk={worstRisk} />
+                    </p>
+                )}
             </div>
 
             <ul aria-label="Heatmap risk" className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-900">

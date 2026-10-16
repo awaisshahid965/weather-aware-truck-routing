@@ -146,13 +146,13 @@ describe('TripPlanner', () => {
         expect(screen.getByText('No route recommended')).toBeInTheDocument()
     })
 
-    it('names the route count when the provider returns too few, with a retry', async () => {
+    it('says when the provider found no route, with a retry', async () => {
         vi.spyOn(TripService, 'createPlan').mockRejectedValue(
             new ApiError({
                 status: 422,
                 code: 'INSUFFICIENT_ROUTES',
-                message: 'Not enough routes.',
-                details: { availableCount: 2 },
+                message: 'The routing provider found no route between these places.',
+                details: { availableCount: 0 },
             }),
         )
         const user = renderPlanner()
@@ -160,7 +160,7 @@ describe('TripPlanner', () => {
         await user.click(screen.getByRole('button', { name: 'Plan routes' }))
 
         const alert = await screen.findByRole('alert')
-        expect(alert).toHaveTextContent('The routing provider returned 2 routes. Three are needed to compare.')
+        expect(alert).toHaveTextContent('The routing provider found no truck route between these places.')
         expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     })
 })

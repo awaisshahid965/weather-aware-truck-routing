@@ -1,4 +1,4 @@
-"""Plan a trip: three routes, the risk at each checkpoint's ETA, a recommendation, and the heatmap.
+"""Plan a trip: up to three routes, the risk at each checkpoint's ETA, a recommendation, and the heatmap.
 
 The service talks only to ports, so tests run it with fakes. One plan reads the clock once,
 fetches every forecast in one call, and reads the risk rules once. A plan is never partial:
@@ -44,10 +44,12 @@ from routing.services.errors import (
 
 logger = logging.getLogger(__name__)
 
-ROUTES_PER_PLAN = 3
+MAX_ROUTES_PER_PLAN = 3
 MIN_TRIP_MILES = 0.1
 ESTIMATE_NOTICE = 'Forecast risk is an estimate, not a road-closure or dispatch clearance.'
 NO_TRAVEL_NOTICE = 'No Travel: every route has No Travel conditions, so no route is recommended.'
+ONE_ROUTE_NOTICE = 'Only 1 route was found for this trip, so there is no other route to compare it with.'
+TWO_ROUTES_NOTICE = 'Only 2 routes were found for this trip, so the plan compares those 2.'
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,7 +80,7 @@ class PlannedRoute:
 class TripPlan:
     generated_at: datetime
     request: PlanTripInput
-    routes: tuple[PlannedRoute, ...]  # provider order
+    routes: tuple[PlannedRoute, ...]  # provider order, 1 to 3
     recommended_index: int | None  # into `routes`; None when every route has No Travel miles
     heatmap: tuple[HeatmapFrame, ...]
     notices: tuple[str, ...]
@@ -163,7 +165,7 @@ class PlanTripService:
             routes=planned,
             recommended_index=recommended_index,
             heatmap=heatmap,
-            notices=_notices(recommended_index),
+            notices=_notices(recommended_index, len(planned)),
             rules_version=rules.version,
         )
 
@@ -193,12 +195,16 @@ class PlanTripService:
             )
 
     def _find_routes(self, request: PlanTripInput) -> tuple[RouteCandidate, ...]:
-        """The first 3 routes in provider order. Each is checked against the length cap before any weather call."""
+        """Up to the first 3 routes in provider order. Each is checked against the length cap before any weather call.
+
+        Fewer than 3 still make a plan: the provider decides how many alternatives a trip has, and showing
+        them beats showing nothing. None is an error.
+        """
         with provider_errors('routing'):
             found = self._routes.find_routes(request.origin.point, request.destination.point, request.departure_at)
-        if len(found) < ROUTES_PER_PLAN:
-            raise InsufficientRoutesError(len(found))
-        routes = tuple(found[:ROUTES_PER_PLAN])
+        if not found:
+            raise InsufficientRoutesError(0)
+        routes = tuple(found[:MAX_ROUTES_PER_PLAN])
         for number, route in enumerate(routes, start=1):
             if route.distance_miles > self._max_route_miles:
                 raise InputValidationError(
@@ -290,7 +296,14 @@ def _recommended_index(routes: Sequence[PlannedRoute]) -> int | None:
     return recommend(ranked).provider_index
 
 
-def _notices(recommended_index: int | None) -> tuple[str, ...]:
+def _notices(recommended_index: int | None, route_count: int) -> tuple[str, ...]:
+    """The most urgent first: No Travel, then a route shortfall, then the standing estimate notice."""
+    notices: list[str] = []
     if recommended_index is None:
-        return (NO_TRAVEL_NOTICE, ESTIMATE_NOTICE)
-    return (ESTIMATE_NOTICE,)
+        notices.append(NO_TRAVEL_NOTICE)
+    if route_count == 1:
+        notices.append(ONE_ROUTE_NOTICE)
+    elif route_count == 2:
+        notices.append(TWO_ROUTES_NOTICE)
+    notices.append(ESTIMATE_NOTICE)
+    return tuple(notices)

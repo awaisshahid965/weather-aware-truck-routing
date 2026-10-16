@@ -26,7 +26,9 @@ export const SARA_TRIP = {
 /** Types the start of a label, then clicks the suggestion with the full label. */
 export const choosePlace = async (user: UserEvent, field: 'Origin' | 'Destination', label: string) => {
     await user.type(screen.getByRole('combobox', { name: field }), label.slice(0, 4))
-    await user.click(await screen.findByRole('option', { name: label }))
+    // The search waits 300 ms after typing. A file's first render, with every worker busy, can use up the rest of
+    // the default 1 s, so suggestions get longer.
+    await user.click(await screen.findByRole('option', { name: label }, { timeout: 3000 }))
 }
 
 /** Fills each given field the way a driver would. */

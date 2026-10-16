@@ -2,7 +2,7 @@
 
 A web app that helps truck drivers pick the safest route. It weighs weather, load weight, and travel time.
 
-The app compares three routes. It checks the forecast at points along each route for the time the truck will reach them. Then it recommends one route.
+The app compares up to three routes. It checks the forecast at points along each route for the time the truck will reach them. Then it recommends one route.
 
 ## Repository layout
 
@@ -84,7 +84,7 @@ The assessment leaves these details open ([`requirements.md` §11](requirements.
 ### Missing data
 
 - **Our choice:** a missing, null, negative or unreadable forecast value at any hour the plan uses fails the whole plan with `FORECAST_UNAVAILABLE`. Unknown weather is never treated as Low.
-- **Our choice:** fewer than 3 distinct routes fails the plan with `INSUFFICIENT_ROUTES` and the count. The app never pads with made-up routes.
+- **Our choice:** when HERE finds only 1 or 2 routes, the plan shows those, compares them by the same rules, and says how many were found. For example, Dallas to Houston has 2. The app never pads with made-up routes. Only when HERE finds no route does the plan fail, with `INSUFFICIENT_ROUTES`.
 - **Our choice:** a trip, or its 48-hour heatmap, that reaches past the forecast range is refused as `VALIDATION_ERROR` on `departureAt`. A forecast is never stretched past its range.
 
 ### Heatmap
@@ -92,6 +92,7 @@ The assessment leaves these details open ([`requirements.md` §11](requirements.
 - **Our choice:** the heatmap shows combined risk from the same rules, with the truck's load, at each point and hour. It is a picture of the weather around the corridor, not a road-by-road risk.
 - **Our choice:** the slider covers 0–48 hours from the entered departure, in 1-hour steps. Checkpoints keep showing risk at their own ETA. The slider shows its own valid time.
 - **Our choice:** points sit every 25 mi along each route, plus points 15 mi to each side. A point within 5 mi of a kept point is dropped. With more than 90 points, the spacing grows ×1.25 until they fit.
+- **Our choice:** under the slider, the app names the highest level at that hour, or says every point is Low. Low has no color, so a calm hour would otherwise look like a broken map.
 - **Our choice:** the server computes all 49 frames in one response. MapLibre's heatmap layer blends between points. Moving the slider makes no network call.
 
 ### Limits
@@ -132,7 +133,7 @@ Each acceptance criterion in [`requirements.md` §8](requirements.md#8-acceptanc
 | Wind, rain, snow and load rules classify correctly | `domain/test_risk.py`, `adapters/test_json_risk_rules.py`, `test_checks.py` |
 | Summaries compare Severe, High, average risk, time | `domain/test_ranking.py`, `components/route-comparison/route-comparison.test.tsx` |
 | Recommendation follows the four priorities in order | `domain/test_ranking.py`, `http/test_route_plan_end_to_end.py`, `components/trip-planner/trip-planner.acceptance.test.tsx` |
-| Map shows routes, checkpoints, risk, ETAs, summaries, recommendation | `components/route-map/route-map.test.tsx`, `components/route-comparison/route-comparison.test.tsx`, `components/trip-planner/trip-planner.acceptance.test.tsx` |
+| Map shows routes, checkpoints, risk, ETAs, summaries, recommendation | `components/route-map/route-map.test.tsx` (including the selected route's summary on the map), `components/route-comparison/route-comparison.test.tsx`, `components/trip-planner/trip-planner.acceptance.test.tsx` |
 | Corridor heatmap with 0–48 h slider | `domain/test_corridor.py`, `utils/geojson.test.ts`, `components/weather-timeline/weather-timeline.test.tsx`, `components/route-map/route-map.test.tsx` |
 | Hosted app, GitHub repo, Loom | Delivery tasks, not tests |
 
@@ -146,7 +147,8 @@ Each acceptance criterion in [`requirements.md` §8](requirements.md#8-acceptanc
 
 | Case | Test |
 |---|---|
-| Fewer than 3 routes → `INSUFFICIENT_ROUTES` with the count, shown in the UI | `services/test_plan_trip.py::test_fewer_than_3_routes_is_insufficient_and_no_forecast_is_fetched`, `http/test_route_plans.py::test_each_service_error_has_its_status_and_code`, `trip-planner.test.tsx` "names the route count when the provider returns too few" |
+| 1 or 2 routes → a plan of those routes, with a notice | `services/test_plan_trip.py::test_two_routes_are_planned_compared_and_named_in_a_notice`, `::test_one_route_is_planned_and_recommended_when_it_has_no_no_travel_miles`, `http/test_route_plans.py::test_two_routes_from_the_provider_are_a_plan_with_a_notice`, `utils/contract-guards.test.ts` "accepts 1 or 2 routes", `route-comparison.test.tsx` "fewer than three" |
+| No route → `INSUFFICIENT_ROUTES`, shown in the UI with a retry | `services/test_plan_trip.py::test_no_route_is_insufficient_and_no_forecast_is_fetched`, `http/test_route_plans.py::test_each_service_error_has_its_status_and_code`, `trip-planner.test.tsx` "says when the provider found no route" |
 | All routes No Travel → no recommendation, banner shown | `domain/test_ranking.py::test_no_route_is_recommended_when_every_route_has_no_travel_miles`, `http/test_route_plans.py::test_no_travel_everywhere_recommends_no_route`, `route-comparison.test.tsx` "shows a banner and no badge" |
 | Null forecast at a used hour → `FORECAST_UNAVAILABLE`, no partial plan | `services/test_plan_trip.py::test_a_null_at_one_checkpoints_hour_fails_the_plan`, `::test_a_gap_that_only_the_last_heatmap_frame_reads_fails_the_plan` |
 | Trip past forecast coverage → `VALIDATION_ERROR` on `departureAt` | `services/test_plan_trip.py::test_a_forecast_range_refusal_is_a_departure_error_not_a_provider_error`, `adapters/test_open_meteo_forecast.py::test_a_forecast_that_ends_inside_the_window_is_a_range_error` |
@@ -164,7 +166,7 @@ Each acceptance criterion in [`requirements.md` §8](requirements.md#8-acceptanc
 
 `uv run poe test:live` in `backend/` calls the real providers. Routes and forecasts change over time, so this records one day.
 
-- **2026-10-16:** all 5 live tests passed. Three plans from Pittsburgh to Cleveland each returned 3 routes. With rain near Cleveland, the 4:00 PM EDT departure that day recommended Route 2, the only route that stayed Low. Calm departures on 2026-10-17 and 2026-10-19 recommended Route 1, the fastest.
+- **2026-10-16:** all 5 live tests passed. Three plans from Pittsburgh to Cleveland each returned 3 routes. With rain near Cleveland, the 4:00 PM EDT departure that day recommended Route 2, the only route that stayed Low. Calm departures on 2026-10-17 and 2026-10-19 recommended Route 1, the fastest. Dallas to Houston and Seattle to Portland each gave a plan of 2 routes, with the notice.
 - **Duration:** the request log's `duration_ms` was about 1.7 s for the first plan, while connections opened, and about 0.5 s after that.
 - **Size:** about 155 KB per plan, with 21 checkpoints and 37–38 heatmap points.
 

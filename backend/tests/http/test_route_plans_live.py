@@ -22,10 +22,8 @@ def test_a_real_plan_from_pittsburgh_to_cleveland(client: Client) -> None:
 
     response = client.post('/api/v1/route-plans', data=json.dumps(body), content_type='application/json', secure=True)
 
-    # Both are honest answers: HERE decides how many alternatives exist.
+    # HERE decides how many alternatives exist. This trip has always had some, and a plan shows up to 3.
     answer = response.json()
-    if response.status_code == 200:
-        assert len(answer['routes']) == 3
-        assert len(answer['heatmap']['frames']) == 49
-    else:
-        assert (response.status_code, answer['error']['code']) == (422, 'INSUFFICIENT_ROUTES'), answer
+    assert response.status_code == 200, answer
+    assert 1 <= len(answer['routes']) <= 3
+    assert len(answer['heatmap']['frames']) == 49

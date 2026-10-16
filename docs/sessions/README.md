@@ -94,6 +94,7 @@ Response ─► Route cards (12) · Route map (13) · Heatmap slider (14)
 | 13 | [Route map](13-route-map.md) | Frontend | FR-05 | 10, 12 | [x] |
 | 14 | [Heatmap timeline](14-heatmap-timeline.md) | Frontend | FR-06 | 13 | [x] |
 | 15 | [Acceptance](15-acceptance.md) | Both | All AC | all | [ ] |
+| 16 | [Fewer routes and map summary](16-fewer-routes-map-summary.md) | Both | FR-01, FR-05, FR-06 | 15 | [ ] |
 
 Sessions 10–12 need only the contract. They can run alongside the backend sessions, using test factories.
 
@@ -132,12 +133,12 @@ Sessions 10–12 need only the contract. They can run alongside the backend sess
 | Acceptance criterion (requirements §8) | Sessions |
 |---|---|
 | Driver enters origin, destination, departure, load | 08, 09, 11 |
-| Three route alternatives retrieved and displayed | 04, 07, 12, 13 |
+| Three route alternatives retrieved and displayed | 04, 07, 12, 13, 16 |
 | Checkpoints spaced at 10/25/50 miles | 02, 07 |
 | Forecast at each checkpoint's ETA | 02, 05, 07 |
 | Wind, rain, snow and load rules classify correctly | 01 |
 | Summaries compare Severe, High, average risk, time | 03, 12 |
 | Recommendation follows the four priorities in order | 03, 12 |
-| Map shows routes, checkpoints, risk, ETAs, summaries, recommendation | 12, 13 |
-| Corridor heatmap with 0–48 h slider | 06, 14 |
+| Map shows routes, checkpoints, risk, ETAs, summaries, recommendation | 12, 13, 16 |
+| Corridor heatmap with 0–48 h slider | 06, 14, 16 |
 | Hosted app, GitHub repo, Loom | Delivery, not in sessions |

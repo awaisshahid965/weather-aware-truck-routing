@@ -65,8 +65,8 @@ const TripPlanner: FC = () => {
                             ) : (
                                 <p className="text-sm text-neutral-700">
                                     Search for where the trip starts and ends, and choose each place from the list. Set
-                                    the departure date, time and time zone, then the load weight. You get three routes,
-                                    compared by the forecast at the time the truck reaches each checkpoint.
+                                    the departure date, time and time zone, then the load weight. You get up to three
+                                    routes, compared by the forecast at the time the truck reaches each checkpoint.
                                 </p>
                             )}
                         </>

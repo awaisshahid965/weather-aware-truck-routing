@@ -1,11 +1,9 @@
 import type { ApiError } from '@/shared/services/api-error'
 
-/** The message the planner shows for a failed plan. A route shortfall names the count the provider returned. */
+/** The message the planner shows for a failed plan. One or two routes still make a plan, so this means none. */
 export const planErrorMessage = (error: ApiError): string => {
-    const { availableCount } = error.details
-    if (error.code === 'INSUFFICIENT_ROUTES' && typeof availableCount === 'number') {
-        const routes = availableCount === 1 ? 'route' : 'routes'
-        return `The routing provider returned ${availableCount} ${routes}. Three are needed to compare.`
+    if (error.code === 'INSUFFICIENT_ROUTES') {
+        return 'The routing provider found no truck route between these places. Check both places, or choose places nearby.'
     }
     return error.message
 }

@@ -12,7 +12,7 @@ import type {
     RoutePlan,
     RouteSummary,
 } from '@/shared/types/route-plan'
-import { CHECKPOINT_INTERVALS_MILES, HEATMAP_FRAME_COUNT, ROUTE_COUNT } from '@/shared/types/route-plan'
+import { CHECKPOINT_INTERVALS_MILES, HEATMAP_FRAME_COUNT, MAX_ROUTE_COUNT } from '@/shared/types/route-plan'
 
 /*
  * TypeScript types vanish at build time, so JSON from the network stays `unknown` until a guard has read it.
@@ -222,8 +222,8 @@ const readHeatmap: Reader<Heatmap> = (value, path) => {
 
 // Cards are keyed by route id and the recommended one is highlighted, so ids and flags must agree.
 const checkRoutes = ({ routes, recommendedRouteId }: RoutePlan): void => {
-    if (routes.length !== ROUTE_COUNT) {
-        fail('routes', `${ROUTE_COUNT} routes, not ${routes.length}`)
+    if (routes.length < 1 || routes.length > MAX_ROUTE_COUNT) {
+        fail('routes', `1 to ${MAX_ROUTE_COUNT} routes, not ${routes.length}`)
     }
     const ids = routes.map((route) => route.id)
     ids.forEach((id, index) => {

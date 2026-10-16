@@ -53,6 +53,21 @@ describe('WeatherTimeline', () => {
         expect(onHourChange).toHaveBeenCalledExactlyOnceWith(6)
     })
 
+    it('says when every point is Low, so a clear heatmap doesn’t look broken', () => {
+        renderTimeline(0)
+
+        expect(screen.getByText('Every point is Low at this hour, so the heatmap is clear.')).toBeInTheDocument()
+        expect(screen.queryByText(/Highest risk at this hour/)).not.toBeInTheDocument()
+    })
+
+    // The factory's wind band makes the origin High from +12 h.
+    it('names the highest risk at the selected hour', () => {
+        renderTimeline(12)
+
+        expect(screen.getByText(/Highest risk at this hour/)).toHaveTextContent('Highest risk at this hour: High')
+        expect(screen.queryByText(/so the heatmap is clear/)).not.toBeInTheDocument()
+    })
+
     it('hides and shows the heatmap with a switch', async () => {
         const shown = renderTimeline(0, true)
         await shown.user.click(screen.getByRole('checkbox', { name: 'Show heatmap' }))

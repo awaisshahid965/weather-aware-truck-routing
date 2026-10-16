@@ -64,7 +64,7 @@ afterEach(() => {
 })
 
 describe('TripPlanner, end to end on a recorded plan', () => {
-    it('plans a trip and shows the cards, the recommendation, the legend and the 0–48 h slider', async () => {
+    it('plans a trip and shows the cards, the recommendation, the map summary, the legend and the 0–48 h slider', async () => {
         render(
             <TripContainer>
                 <TripPlanner />
@@ -83,7 +83,12 @@ describe('TripPlanner, end to end on a recorded plan', () => {
         const cards = within(screen.getByRole('list', { name: 'Routes' })).getAllByRole('button', { name: /^Route \d/ })
         expect(cards.map((card) => card.getAttribute('aria-pressed'))).toStrictEqual(['true', 'false', 'false'])
         expect(within(cards[0] as HTMLElement).getByText('Recommended')).toBeInTheDocument()
-        expect(screen.getAllByText('Recommended', { selector: 'span' })).toHaveLength(1)
+        expect(cards.filter((card) => within(card).queryByText('Recommended') !== null)).toHaveLength(1)
+
+        // The map's panel repeats the selected route's summary.
+        const mapSummary = within(await screen.findByRole('region', { name: 'Route 1' }))
+        expect(mapSummary.getByText('Selected route')).toBeInTheDocument()
+        expect(mapSummary.getByText('Recommended')).toBeInTheDocument()
 
         expect(await screen.findByRole('list', { name: 'Checkpoint risk' })).toBeInTheDocument()
         expect(within(screen.getByRole('list', { name: 'Checkpoint risk' })).getAllByRole('listitem')).toHaveLength(5)
@@ -92,9 +97,13 @@ describe('TripPlanner, end to end on a recorded plan', () => {
         // Departure is 19:00Z, 3:00 PM EDT on Friday. The last frame is two days later.
         const slider = screen.getByRole('slider', { name: 'Forecast hour' })
         expect(slider).toHaveAttribute('aria-valuetext', '+0 h · Fri 3:00 PM EDT')
+        expect(screen.getByText('Every point is Low at this hour, so the heatmap is clear.')).toBeInTheDocument()
         const sliderGroup = within(slider.parentElement as HTMLElement)
         expect(sliderGroup.getByText('Departure')).toBeInTheDocument()
         expect(sliderGroup.getByText('+48 h')).toBeInTheDocument()
+        // In the recording, rain crossed the corridor: one heatmap point was Severe 5 hours after departure.
+        fireEvent.change(slider, { target: { value: '5' } })
+        expect(screen.getByText(/Highest risk at this hour/)).toHaveTextContent('Highest risk at this hour: Severe')
         fireEvent.change(slider, { target: { value: '48' } })
         expect(slider).toHaveAttribute('aria-valuetext', '+48 h · Sun 3:00 PM EDT')
         expect(screen.getByText('+48 h · Sun 3:00 PM EDT')).toBeInTheDocument()
