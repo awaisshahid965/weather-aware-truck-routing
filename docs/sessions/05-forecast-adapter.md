@@ -149,7 +149,7 @@ Mark it `@pytest.mark.live`. Fetch two real points for the next 6 hours. Assert 
 
 ## Done when
 
-- [ ] `uv run poe check` passes.
+- [x] `uv run poe check` passes.
 
 ## Not in this session
 

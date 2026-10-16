@@ -194,3 +194,18 @@ class RankInput:
 @dataclass(frozen=True, slots=True)
 class Recommendation:
     provider_index: int | None  # None when every route has No Travel miles
+
+
+@dataclass(frozen=True, slots=True)
+class HeatmapPoint:
+    point: GeoPoint
+    risk: RiskLevel
+
+
+@dataclass(frozen=True, slots=True)
+class HeatmapFrame:
+    """The risk around the routes at one hour. Not where the truck is then: checkpoints say that."""
+
+    offset_hours: int  # 0..48
+    valid_at: datetime  # departure_at + offset, aware UTC
+    points: tuple[HeatmapPoint, ...]

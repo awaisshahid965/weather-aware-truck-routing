@@ -15,6 +15,8 @@ from routing.domain.sampling import (
     checkpoint_distances,
     elapsed_seconds_at,
     point_at,
+    point_locator,
+    spaced_distances,
 )
 
 DEPARTURE_AT = datetime(2026, 11, 17, 13, 0, tzinfo=UTC)
@@ -88,6 +90,18 @@ def test_spacing_is_exact_and_ends_once_at_the_destination(total_miles: float, i
     assert distances[-1] == total_miles
     assert all(distances[k] == k * interval_miles for k in range(len(distances) - 1))
     assert 0 < distances[-1] - distances[-2] <= interval_miles
+
+
+def test_any_spacing_steps_the_same_way() -> None:
+    distances = spaced_distances(100, 31.25)
+
+    assert distances == [0, 31.25, 62.5, 93.75, 100]
+
+
+@pytest.mark.parametrize('spacing_miles', [0, -1, math.nan, math.inf])
+def test_a_spacing_must_be_finite_and_positive(spacing_miles: float) -> None:
+    with pytest.raises(ValueError, match='spacing_miles'):
+        spaced_distances(60, spacing_miles)
 
 
 # ETA
@@ -224,6 +238,14 @@ def test_build_checkpoints_places_points_and_times_like_the_single_lookups() -> 
         distance = checkpoint.distance_from_start_miles
         assert checkpoint.point == point_at(route, distance)
         assert checkpoint.eta_at == DEPARTURE_AT + timedelta(seconds=elapsed_seconds_at(route, distance))
+
+
+@given(legs=legs, fraction=st.floats(min_value=0, max_value=1))
+def test_a_locator_places_points_like_point_at(legs: list[tuple[float, float]], fraction: float) -> None:
+    route = _due_north_route(*legs)
+    distance = fraction * route.distance_miles
+
+    assert point_locator(route)(distance) == point_at(route, distance)
 
 
 # Cells
