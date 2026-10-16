@@ -5,6 +5,7 @@ They never carry a key, a raw provider body or a stack trace.
 """
 
 import logging
+import math
 from collections.abc import Iterator, Mapping
 from http import HTTPStatus
 from typing import Any
@@ -14,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.settings import api_settings
 
 from routing.http.middleware import current_request_id
+from routing.http.throttles import DailyLimitReachedError
 from routing.services.errors import (
     ForecastUnavailableError,
     InputValidationError,
@@ -60,6 +62,16 @@ def api_exception_handler(exc: Exception, context: dict[str, Any]) -> Response:
         case UpstreamError():
             _log_failure('PROVIDER_ERROR', exc)
             return _error(HTTPStatus.BAD_GATEWAY, 'PROVIDER_ERROR', _sentence(str(exc)))
+        case DailyLimitReachedError():  # before Throttled, its parent class
+            return _rate_limited(
+                exc.retry_after_seconds,
+                f'This demo has reached its daily limit for {exc.what}, which keeps it free to run. '
+                'Try again after midnight UTC.',
+            )
+        case exceptions.Throttled():
+            # DRF sets `wait` on every Throttled, but its type stubs leave the attribute out.
+            wait: float | None = getattr(exc, 'wait', None)
+            return _rate_limited(wait, f'Too many requests from your connection. {_try_again_in(wait)}')
         case exceptions.ValidationError():
             return _error(HTTPStatus.BAD_REQUEST, 'VALIDATION_ERROR', VALIDATION_MESSAGE, _field_messages(exc.detail))
         case exceptions.ParseError():
@@ -78,6 +90,18 @@ def _error(status: int, code: str, message: str, details: Mapping[str, object] |
         'requestId': current_request_id(),
     }
     return Response(body, status=status)
+
+
+def _rate_limited(wait: float | None, message: str) -> Response:
+    retry_after = max(1, math.ceil(wait or 0))
+    response = _error(HTTPStatus.TOO_MANY_REQUESTS, 'RATE_LIMITED', message, {'retryAfterSeconds': retry_after})
+    response['Retry-After'] = str(retry_after)
+    return response
+
+
+def _try_again_in(wait: float | None) -> str:
+    minutes = max(1, math.ceil((wait or 0) / 60))
+    return f'Try again in {minutes} minute{"" if minutes == 1 else "s"}.'
 
 
 def _log_failure(code: str, exc: Exception) -> None:

@@ -52,7 +52,7 @@ USE_TZ = True
 
 # --- HTTP API --------------------------------------------------------------------
 
-REST_FRAMEWORK = {
+REST_FRAMEWORK: dict[str, object] = {
     # JSON in, JSON out. The browsable API needs templates and static files that
     # this service does not ship.
     'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONRenderer'],
@@ -63,6 +63,9 @@ REST_FRAMEWORK = {
     'UNAUTHENTICATED_USER': None,
     # Every error a view raises leaves in the contract's error shape.
     'EXCEPTION_HANDLER': 'routing.http.errors.api_exception_handler',
+    # Rate limits count each visitor by the connection's address. Left unset, DRF would trust any
+    # X-Forwarded-For a client sends, and a client could be someone new on every request.
+    'NUM_PROXIES': 0,
 }
 
 CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS', default=[])
@@ -76,6 +79,8 @@ if env_bool('DJANGO_TRUST_X_FORWARDED_PROTO', default=False):
     # Enable only behind a proxy that terminates TLS and overwrites this header;
     # otherwise a client could claim HTTPS by sending it.
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    # The same proxy sets X-Forwarded-For to the visitor's address, which the rate limits count by.
+    REST_FRAMEWORK['NUM_PROXIES'] = 1
 
 SILENCED_SYSTEM_CHECKS = [
     # CSRF middleware is absent on purpose: the API sets no cookies and has no
