@@ -124,8 +124,8 @@ Delete the `.gitkeep` files in `shared/components/` and `shared/ui/`.
 
 ## Done when
 
-- [ ] `npm run check` and `npm run build` pass.
-- [ ] The whole form works by keyboard.
+- [x] `npm run check` and `npm run build` pass.
+- [x] The whole form works by keyboard.
 
 ## Not in this session
 

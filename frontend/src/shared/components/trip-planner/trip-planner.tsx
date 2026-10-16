@@ -2,13 +2,15 @@
 
 import type { FC } from 'react'
 import { useId } from 'react'
+import RouteComparison from '@/shared/components/route-comparison/route-comparison'
+import { planErrorMessage } from '@/shared/components/route-comparison/route-comparison.utils'
 import TripForm from '@/shared/components/trip-form/trip-form'
 import Button from '@/shared/ui/button/button'
 import useTripPlanner from './hooks/use-trip-planner'
 
 /** The form and results in a side panel, with the map beside them. On narrow screens they stack. */
 const TripPlanner: FC = () => {
-    const { plan, status, error, values, changeValues, isPreviousPlan } = useTripPlanner()
+    const { plan, status, error, values, changeValues, isPreviousPlan, selectedRouteId, selectRoute } = useTripPlanner()
     const formId = useId()
     const resultsHeadingId = useId()
 
@@ -31,7 +33,7 @@ const TripPlanner: FC = () => {
                             role="alert"
                             className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900"
                         >
-                            <p>{error.message}</p>
+                            <p>{planErrorMessage(error)}</p>
                             {error.requestId !== null && (
                                 <p className="mt-1 text-xs text-red-800">Reference: {error.requestId}</p>
                             )}
@@ -76,6 +78,13 @@ const TripPlanner: FC = () => {
                                 <p className="text-sm text-neutral-700">
                                     The trip has changed since this plan. Plan routes again to update it.
                                 </p>
+                            )}
+                            {selectedRouteId !== null && (
+                                <RouteComparison
+                                    plan={plan}
+                                    selectedRouteId={selectedRouteId}
+                                    onSelectRoute={selectRoute}
+                                />
                             )}
                         </>
                     )}
