@@ -362,6 +362,17 @@ def test_a_business_rule_from_the_service_is_a_400_naming_the_field(
     assert error['message'] == 'departureAt must be in the future.'
 
 
+def test_the_same_origin_and_destination_is_a_400_naming_the_destination(
+    monkeypatch: pytest.MonkeyPatch, client: Client
+) -> None:
+    _use(monkeypatch, plan_trip_service())
+
+    response = _post(client, _with('destination', BODY['origin']))
+
+    error = _assert_error_shape(response, 400, 'VALIDATION_ERROR')['error']
+    assert error['details'] == {'destination': ['Must be at least 0.1 miles from the origin.']}
+
+
 def test_a_body_that_is_not_an_object_is_a_400(monkeypatch: pytest.MonkeyPatch, client: Client) -> None:
     _use(monkeypatch, plan_trip_service())
 
