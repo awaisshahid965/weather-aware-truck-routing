@@ -130,6 +130,7 @@ Every error uses one shape:
 | 422 | `FORECAST_UNAVAILABLE` | A required forecast value is missing, invalid or out of range. |
 | 502 | `PROVIDER_ERROR` | A provider failed or returned bad data. |
 | 504 | `PROVIDER_TIMEOUT` | A provider timed out. |
+| 429 | `RATE_LIMITED` | A request limit was reached (see [Request limits](#request-limits)). `details.retryAfterSeconds` matches the `Retry-After` header. |
 | 500 | `INTERNAL_ERROR` | Anything unexpected. The message is generic. |
 
 Errors never contain keys, raw provider bodies or stack traces. The UI shows the message and a retry action. It never invents routes to make up a shortfall.
@@ -149,8 +150,22 @@ These are named constants in `routing/bootstrap.py`, passed into constructors. T
 | `ROUTING_DEADLINE_SECONDS` | 15 | Total for one routing call, retries included. |
 | `FORECAST_DEADLINE_SECONDS` | 25 | Total for all forecast batches. |
 | `GEOCODING_DEADLINE_SECONDS` | 5 | Total for one place search. |
+| `ROUTE_PLANS_PER_DAY` | 125 | Whole site. 31 × 125 = 3,875 stays under HERE's 5,000 free truck routes a month. |
+| `PLACE_SEARCHES_PER_DAY` | 600 | Whole site. 31 × 600 = 18,600 stays under HERE's 30,000 free geocodes a month. |
+| `ROUTE_PLANS_PER_VISITOR` | 10/hour | Per client address, so one visitor can't use up the day. |
+| `PLACE_SEARCHES_PER_VISITOR` | 60/hour | Per client address. |
 
 Gunicorn kills a request after 60 s (scaffold). The deadlines keep a full plan well under that.
+
+### Request limits
+
+HERE bills for use past its free monthly allowance and has no setting that stops at a cap, so the API stops first.
+
+- Each request to `/route-plans` or `/places` first passes its visitor's hourly limit, then the site's daily limit. A request the visitor limit refuses never counts toward the day.
+- The daily count is shared by every worker process through one file, changed only under a lock. It starts again at midnight UTC, and on a redeploy.
+- Requests are counted before validation, so the count never falls behind the provider calls made.
+- Visitors are counted by connection address. Behind the TLS proxy (`DJANGO_TRUST_X_FORWARDED_PROTO`), that's the address the proxy adds to `X-Forwarded-For`. Otherwise the header is ignored.
+- At a limit the API answers `429 RATE_LIMITED`, and the UI shows its message.
 
 ## Risk policy
 

@@ -96,6 +96,11 @@ The assessment leaves these details open ([`requirements.md` §11](requirements.
 - **Our choice:** under the slider, the app names the highest level at that hour, or says every point is Low. Low has no color, so a calm hour would otherwise look like a broken map.
 - **Our choice:** the server computes all 49 frames in one response. MapLibre's heatmap layer blends between points. Moving the slider makes no network call.
 
+### Request limits
+
+- **Our choice:** HERE bills past its free allowance (5,000 truck routes and 30,000 geocodes a month) and has no cap setting. So the API caps itself: 125 route plans and 600 place searches a day for the whole site, and 10 plans and 60 searches an hour per visitor. A month at the daily caps stays inside both allowances.
+- **Our choice:** at a limit the API answers `429 RATE_LIMITED`. The page says why and when to try again.
+
 ### Limits
 
 These are named constants in [`backend/routing/bootstrap.py`](backend/routing/bootstrap.py), not settings.
@@ -111,6 +116,10 @@ These are named constants in [`backend/routing/bootstrap.py`](backend/routing/bo
 | `ROUTING_DEADLINE_SECONDS` | 15 | Total for one routing call, retries included. |
 | `FORECAST_DEADLINE_SECONDS` | 25 | Total for all forecast batches. |
 | `GEOCODING_DEADLINE_SECONDS` | 5 | Total for one place search. |
+| `ROUTE_PLANS_PER_DAY` | 125 | Whole site. Stays under HERE's 5,000 free truck routes a month. |
+| `PLACE_SEARCHES_PER_DAY` | 600 | Whole site. Stays under HERE's 30,000 free geocodes a month. |
+| `ROUTE_PLANS_PER_VISITOR` | 10/hour | Per visitor, so one person can't use up the day. |
+| `PLACE_SEARCHES_PER_VISITOR` | 60/hour | Per visitor. |
 
 ### Known limits
 
@@ -162,6 +171,8 @@ Each acceptance criterion in [`requirements.md` §8](requirements.md#8-acceptanc
 | Rain 0.09 + showers 0.01 → Moderate | `adapters/test_open_meteo_forecast.py::test_rain_and_showers_add_exactly` |
 | The shipped `risk_rules.json` equals the spec | `adapters/test_json_risk_rules.py::test_the_shipped_file_equals_the_spec_rules` |
 | A broken `risk_rules.json` → `manage.py check` fails with `routing.E001` | `test_checks.py::test_manage_py_check_runs_it` |
+| Daily limit reached → `429 RATE_LIMITED`, provider not called | `http/test_throttles.py::test_the_site_stops_at_its_daily_limit_until_midnight_utc`, `trip-planner.test.tsx` "shows the daily limit message" |
+| Worker processes racing never pass the daily limit together | `http/test_throttles.py::test_worker_processes_racing_never_pass_the_limit_together` |
 
 ### Live smoke run
 

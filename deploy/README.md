@@ -137,6 +137,7 @@ sudo docker compose --env-file .env.production -f compose.production.yaml logs -
 - **Oracle can stop free VMs that sit idle.** Open the site before you share the link.
 - **Open-Meteo's free API is for non-commercial use.** A demo or assessment is fine. A business would need its paid plan.
 - **Restarts are automatic.** The containers start again after a VM reboot.
+- **Daily limits keep the HERE bill at $0.** The site allows 125 route plans and 600 place searches a day, then says "try again after midnight UTC". This keeps a month inside HERE's free allowance. Your own local testing uses the same HERE key, so it counts toward HERE's allowance too. A redeploy starts the day's counts again, so don't redeploy many times in one day.
 
 ## Remove everything
 
