@@ -77,15 +77,15 @@ export const checkpointsToFeatures = (plan: RoutePlan): FeatureCollection<Point>
 
 **Browser check** (manual, desktop and phone widths):
 
-- [ ] Three lines visible. The recommended route is clearly emphasized.
-- [ ] Selecting a card highlights its line.
-- [ ] Clicking a checkpoint shows correct details.
-- [ ] Legend and attribution are visible.
+- [x] Three lines visible. The recommended route is clearly emphasized.
+- [x] Selecting a card highlights its line.
+- [x] Clicking a checkpoint shows correct details.
+- [x] Legend and attribution are visible.
 
 ## Done when
 
-- [ ] `npm run check` and `npm run build` pass, and the browser check passes.
-- [ ] No DOM marker per checkpoint. Everything is a layer.
+- [x] `npm run check` and `npm run build` pass, and the browser check passes.
+- [x] No DOM marker per checkpoint. Everything is a layer.
 
 ## Not in this session
 
