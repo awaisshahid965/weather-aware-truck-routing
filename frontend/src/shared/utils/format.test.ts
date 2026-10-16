@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAverageRisk, formatDuration, formatEta, formatMiles } from './format'
+import { formatAverageRisk, formatDuration, formatEta, formatInchesPerHour, formatMiles, formatWind } from './format'
 
 describe('formatMiles', () => {
     it.each([
@@ -35,5 +35,25 @@ describe('formatAverageRisk', () => {
     it('shows two decimals', () => {
         expect(formatAverageRisk(0.4)).toBe('0.40')
         expect(formatAverageRisk(1.705)).toBe('1.71')
+    })
+})
+
+describe('formatWind', () => {
+    it.each([
+        { mph: 26, expected: '26 mph' },
+        { mph: 37.6, expected: '38 mph' },
+        { mph: 0, expected: '0 mph' },
+    ])('formats $mph as $expected', ({ mph, expected }) => {
+        expect(formatWind(mph)).toBe(expected)
+    })
+})
+
+describe('formatInchesPerHour', () => {
+    it.each([
+        { rate: 0.12, expected: '0.12 in/h' },
+        { rate: 1.4, expected: '1.40 in/h' },
+        { rate: 0, expected: '0.00 in/h' },
+    ])('formats $rate as $expected', ({ rate, expected }) => {
+        expect(formatInchesPerHour(rate)).toBe(expected)
     })
 })

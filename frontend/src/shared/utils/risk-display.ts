@@ -1,4 +1,4 @@
-import type { RiskLevel } from '@/shared/types/risk'
+import type { RiskDriver, RiskLevel } from '@/shared/types/risk'
 
 /** What the driver reads for each level. Every color on screen comes with one of these. */
 export const RISK_LABELS: Record<RiskLevel, string> = {
@@ -16,4 +16,11 @@ export const RISK_COLORS: Record<RiskLevel, string> = {
     high: '#f97316',
     severe: '#b91c1c',
     ['no_travel']: '#3b0764',
+}
+
+/** What the driver reads for each condition that can set a level. */
+export const RISK_DRIVER_LABELS: Record<RiskDriver, string> = {
+    wind: 'Wind',
+    rain: 'Rain',
+    snow: 'Snow',
 }

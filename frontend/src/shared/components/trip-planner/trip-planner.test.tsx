@@ -11,6 +11,11 @@ import { makeRoutePlan } from '../../../../tests/factories/route-plan'
 import { fillTripForm, SARA_TRIP } from '../../../../tests/helpers/trip-form'
 import TripPlanner from './trip-planner'
 
+// MapLibre needs WebGL, which jsdom lacks. The map has its own tests; here it shows what it was given.
+vi.mock('@/shared/components/route-map/route-map', () => ({
+    default: ({ selectedRouteId }: { selectedRouteId: string | null }) => <p>Map of {selectedRouteId}</p>,
+}))
+
 const NOW = '2026-11-16T15:00:00Z'
 
 const PLAN_HEADING = { level: 2, name: 'Pittsburgh, PA to Cleveland, OH' }
@@ -111,8 +116,10 @@ describe('TripPlanner', () => {
         const route2 = await screen.findByRole('button', { name: /^Route 2/ })
         const route1 = screen.getByRole('button', { name: /^Route 1/ })
         expect(route2).toHaveAttribute('aria-pressed', 'true')
+        expect(await screen.findByText('Map of route-2')).toBeInTheDocument()
         await user.click(route1)
         expect(route1).toHaveAttribute('aria-pressed', 'true')
+        expect(screen.getByText('Map of route-1')).toBeInTheDocument()
         expect(route2).toHaveAttribute('aria-pressed', 'false')
         expect(within(route2).getByText('Recommended')).toBeInTheDocument()
 

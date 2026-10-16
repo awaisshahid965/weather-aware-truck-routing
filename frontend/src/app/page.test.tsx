@@ -1,6 +1,9 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import Home from './page'
+
+// MapLibre needs WebGL, which jsdom lacks. The map has its own tests.
+vi.mock('@/shared/components/route-map/route-map', () => ({ default: () => <div>Route map</div> }))
 
 describe('Home', () => {
     it('renders the product name and the trip form', () => {
