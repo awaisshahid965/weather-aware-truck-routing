@@ -1,4 +1,5 @@
 import logging
+import threading
 import traceback
 from collections.abc import Callable, Iterator
 
@@ -236,7 +237,6 @@ def test_a_streamed_body_over_the_limit_is_rejected(clock: FakeClock) -> None:
         pytest.param(b'not json', id='not JSON'),
         pytest.param(b'{"length": NaN}', id='NaN'),
         pytest.param(b'{"length": Infinity}', id='Infinity'),
-        pytest.param(b'[' * 100_000 + b']' * 100_000, id='nested too deep'),
     ],
 )
 def test_a_body_that_is_not_json_is_rejected(clock: FakeClock, body: bytes) -> None:
@@ -244,6 +244,31 @@ def test_a_body_that_is_not_json_is_rejected(clock: FakeClock, body: bytes) -> N
 
     with pytest.raises(ProviderError, match='invalid JSON'):
         _get(provider, clock)
+
+
+def test_json_nested_deeper_than_the_stack_is_rejected(clock: FakeClock) -> None:
+    # Python 3.14 stops JSON nesting where the real stack ends, and stack sizes differ between
+    # machines. A thread with a small fixed stack makes the parser overflow on every machine.
+    depth = 100_000
+    provider = ScriptedProvider(lambda _request: httpx.Response(200, content=b'[' * depth + b']' * depth))
+    errors: list[ProviderError] = []
+
+    def call() -> None:
+        try:
+            _get(provider, clock)
+        except ProviderError as exc:
+            errors.append(exc)
+
+    previous = threading.stack_size(1024 * 1024)
+    try:
+        thread = threading.Thread(target=call)
+        thread.start()
+        thread.join()
+    finally:
+        threading.stack_size(previous)
+
+    [error] = errors
+    assert 'invalid JSON' in str(error)
 
 
 def test_a_retry_is_logged_with_the_path(clock: FakeClock, caplog: pytest.LogCaptureFixture) -> None:
