@@ -7,7 +7,7 @@ traffic modelling.
 
 import math
 from bisect import bisect_left
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from itertools import accumulate, count, pairwise
 
@@ -21,12 +21,19 @@ def checkpoint_distances(total_miles: float, interval_miles: int) -> list[float]
     """`0, I, 2I, …` while below the total, then the destination. The destination never appears twice."""
     if interval_miles not in CHECKPOINT_INTERVALS_MILES:
         raise ValueError(f'interval_miles must be one of {sorted(CHECKPOINT_INTERVALS_MILES)}, got {interval_miles!r}')
+    return spaced_distances(total_miles, interval_miles)
+
+
+def spaced_distances(total_miles: float, spacing_miles: float) -> list[float]:
+    """`0, S, 2S, …` while below the total, then the destination, for any spacing `S`."""
     if not (math.isfinite(total_miles) and total_miles > 0):
         raise ValueError(f'total_miles must be finite and > 0, got {total_miles!r}')
+    if not (math.isfinite(spacing_miles) and spacing_miles > 0):
+        raise ValueError(f'spacing_miles must be finite and > 0, got {spacing_miles!r}')
     distances: list[float] = []
-    # k * I, never a running sum: adding I again and again lets float error build up.
+    # k * S, never a running sum: adding S again and again lets float error build up.
     for k in count():
-        distance_miles = float(k * interval_miles)
+        distance_miles = float(k * spacing_miles)
         if distance_miles >= total_miles:
             break
         distances.append(distance_miles)
@@ -39,6 +46,21 @@ def point_at(route: RouteCandidate, distance_miles: float) -> GeoPoint:
     index, fraction = _locate(route, distance_miles)
     points = route.sections[index].points
     return _point_along(points, _shape_miles(points), fraction)
+
+
+def point_locator(route: RouteCandidate) -> Callable[[float], GeoPoint]:
+    """`point_at` for one route, for placing many points.
+
+    Each section's shape is measured once, up front. Calling `point_at` per point would
+    re-measure the whole section every time, and a long route's shape has tens of thousands of points.
+    """
+    shapes = [_shape_miles(section.points) for section in route.sections]
+
+    def locate(distance_miles: float) -> GeoPoint:
+        index, fraction = _locate(route, distance_miles)
+        return _point_along(route.sections[index].points, shapes[index], fraction)
+
+    return locate
 
 
 def elapsed_seconds_at(route: RouteCandidate, distance_miles: float) -> float:
@@ -67,23 +89,18 @@ def build_checkpoints(route: RouteCandidate, interval_miles: int, departure_at: 
     if departure_at.utcoffset() is None:
         raise ValueError('departure_at must be timezone-aware')
     distances = checkpoint_distances(route.distance_miles, interval_miles)
-    # Measure each shape once. Calling `point_at` per checkpoint would re-measure the whole
-    # section every time, and a long route's shape has tens of thousands of points.
-    shapes = [_shape_miles(section.points) for section in route.sections]
+    locate = point_locator(route)
     # Add elapsed time in UTC. On local wall-clock time it would be an hour off across a DST change.
     start_at = departure_at.astimezone(UTC)
-    checkpoints: list[Checkpoint] = []
-    for distance_miles, cell in zip(distances, cell_miles(distances), strict=True):
-        index, fraction = _locate(route, distance_miles)
-        checkpoints.append(
-            Checkpoint(
-                distance_from_start_miles=distance_miles,
-                point=_point_along(route.sections[index].points, shapes[index], fraction),
-                eta_at=start_at + timedelta(seconds=_elapsed_seconds(route, index, fraction)),
-                cell_miles=cell,
-            )
+    return tuple(
+        Checkpoint(
+            distance_from_start_miles=distance_miles,
+            point=locate(distance_miles),
+            eta_at=start_at + timedelta(seconds=elapsed_seconds_at(route, distance_miles)),
+            cell_miles=cell,
         )
-    return tuple(checkpoints)
+        for distance_miles, cell in zip(distances, cell_miles(distances), strict=True)
+    )
 
 
 def _locate(route: RouteCandidate, distance_miles: float) -> tuple[int, float]:
