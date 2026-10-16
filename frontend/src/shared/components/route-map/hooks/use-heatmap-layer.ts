@@ -3,7 +3,7 @@ import type { RefObject } from 'react'
 import { useEffect, useState } from 'react'
 import type { RoutePlan } from '@/shared/types/route-plan'
 import { heatmapFrameCollections } from '@/shared/utils/geojson'
-import { HEATMAP_LAYER_ID, HEATMAP_SOURCE_ID } from '../route-map.utils'
+import { HEATMAP_LAYER_IDS, HEATMAP_SOURCE_ID } from '../route-map.utils'
 
 interface UseHeatmapLayerOptions {
     mapRef: RefObject<MapLibreMap | null>
@@ -40,7 +40,7 @@ const useHeatmapLayer = ({ mapRef, styleRevision, plan }: UseHeatmapLayerOptions
         if (map === null || styleRevision === 0) {
             return
         }
-        map.setLayoutProperty(HEATMAP_LAYER_ID, 'visibility', visible ? 'visible' : 'none')
+        HEATMAP_LAYER_IDS.forEach((id) => map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none'))
     }, [mapRef, visible, styleRevision])
 
     return { hour, changeHour: setHour, visible, changeVisible: setVisible }

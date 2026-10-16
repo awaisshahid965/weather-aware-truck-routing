@@ -1,17 +1,26 @@
 import type { FeatureCollection } from 'geojson'
 import type { AddLayerObject, MapGeoJSONFeature, MapLibreMap } from 'maplibre-gl'
+import type { RiskLevel } from '@/shared/types/risk'
+import { RISK_LEVELS } from '@/shared/types/risk'
 import type { Checkpoint, PlannedRoute, RoutePlan } from '@/shared/types/route-plan'
 import { RISK_COLORS } from '@/shared/utils/risk-display'
 import type { CheckpointRef } from './route-map.types'
 
 type CircleLayer = Extract<AddLayerObject, { type: 'circle' }>
+type HeatmapLayer = Extract<AddLayerObject, { type: 'heatmap' }>
 type Filter = NonNullable<CircleLayer['filter']>
 
 export const HEATMAP_SOURCE_ID = 'heatmap'
 export const ROUTES_SOURCE_ID = 'routes'
 export const CHECKPOINTS_SOURCE_ID = 'checkpoints'
 
-export const HEATMAP_LAYER_ID = 'heatmap-risk'
+/** Low has no layer: it has no color on the heatmap. */
+const HEATMAP_LEVELS = RISK_LEVELS.filter((level) => level !== 'low')
+
+const heatmapLayerId = (level: RiskLevel): string => `heatmap-risk-${level.replace('_', '-')}`
+
+/** One per colored level, lowest first, as they stack on the map. */
+export const HEATMAP_LAYER_IDS = HEATMAP_LEVELS.map(heatmapLayerId)
 export const ROUTE_CASING_LAYER_ID = 'route-casing'
 export const ROUTE_LINES_LAYER_ID = 'route-lines'
 export const ROUTE_SELECTED_LAYER_ID = 'route-selected'
@@ -31,42 +40,50 @@ const EMPTY_COLLECTION: FeatureCollection = { type: 'FeatureCollection', feature
 // Matches no feature: mile markers are never negative.
 const NO_CHECKPOINT: Filter = ['<', ['get', 'mile'], 0]
 
+// Near latitude 40, one pixel at zoom 0 spans about 37 mi. Each zoom level halves that, so the radius doubles.
+const MILES_PER_PIXEL_AT_ZOOM_0 = 37.25
+
+// The spacing between points: same-level neighbours merge into one field, and a lone point reaches about half way
+// to the next one.
+const HEATMAP_RADIUS_MILES = 25
+
+const heatmapRadiusAt = (zoom: number): number => (HEATMAP_RADIUS_MILES / MILES_PER_PIXEL_AT_ZOOM_0) * 2 ** zoom
+
+// MapLibre's kernel peaks at 0.4 for a lone point. Full color from half that covers the point's core, and points that
+// overlap stay at full color instead of adding up to a hotter one.
+const FULL_COLOR_DENSITY = 0.2
+
+/**
+ * One heatmap layer per level, drawing every point at that level or worse, in that level's color. They stack with the
+ * worst on top, so each place shows the worst level near it. One layer weighted by score can't: it adds weights, so a
+ * lone Severe point would draw as Moderate, and a wide Moderate band as Severe.
+ */
+const heatmapLayer = (level: RiskLevel): HeatmapLayer => ({
+    id: heatmapLayerId(level),
+    type: 'heatmap',
+    source: HEATMAP_SOURCE_ID,
+    filter: ['>=', ['get', 'riskScore'], RISK_LEVELS.indexOf(level)],
+    paint: {
+        'heatmap-color': [
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            // A see-through copy of the color, not `transparent`: fading from transparent black would gray the edges.
+            0,
+            `${RISK_COLORS[level]}00`,
+            FULL_COLOR_DENSITY,
+            RISK_COLORS[level],
+        ],
+        'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 2, heatmapRadiusAt(2), 12, heatmapRadiusAt(12)],
+        // Routes and checkpoints stay readable through it.
+        'heatmap-opacity': 0.6,
+    },
+})
+
 /** Bottom to top. The heatmap stays under the routes, and checkpoints sit above every line. */
 const ROUTE_MAP_LAYERS: AddLayerObject[] = [
     // Filled by the forecast timeline, one hour at a time.
-    {
-        id: HEATMAP_LAYER_ID,
-        type: 'heatmap',
-        source: HEATMAP_SOURCE_ID,
-        paint: {
-            // Low weighs 0, so calm weather leaves the map clear.
-            'heatmap-weight': ['/', ['get', 'riskScore'], 4],
-            // Each point's kernel adds up to about 2.5 along a lone route at this radius, which cancels the kernel's
-            // 0.4 peak. So density ≈ weight there, and the default intensity of 1 lands each level on its own color.
-            // Where routes overlap, points sit closer and read hotter.
-            'heatmap-color': [
-                'interpolate',
-                ['linear'],
-                ['heatmap-density'],
-                // A see-through Moderate, not `transparent`: fading from transparent black would gray the edges.
-                0,
-                `${RISK_COLORS.moderate}00`,
-                0.25,
-                RISK_COLORS.moderate,
-                0.5,
-                RISK_COLORS.high,
-                0.75,
-                RISK_COLORS.severe,
-                1,
-                RISK_COLORS.no_travel,
-            ],
-            // 1.5× the 25 mi spacing, so neighbours blend into one field. Near latitude 40 that is about 1 px at zoom 0,
-            // and it doubles with every zoom level, as the map's scale does. Past zoom 12 it stops growing.
-            'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 0, 1, 12, 4096],
-            // Routes and checkpoints stay readable through it.
-            'heatmap-opacity': 0.6,
-        },
-    },
+    ...HEATMAP_LEVELS.map(heatmapLayer),
     {
         id: ROUTE_CASING_LAYER_ID,
         type: 'line',

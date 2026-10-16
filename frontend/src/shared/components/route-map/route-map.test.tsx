@@ -89,6 +89,15 @@ const hourSlider = () => screen.getByRole('slider', { name: 'Forecast hour' })
 
 const moveSlider = (hour: number) => fireEvent.change(hourSlider(), { target: { value: String(hour) } })
 
+const HEATMAP_LAYERS = ['heatmap-risk-moderate', 'heatmap-risk-high', 'heatmap-risk-severe', 'heatmap-risk-no-travel']
+
+/** The visibility each heatmap layer was last given. */
+const heatmapVisibility = (map: InstanceType<typeof FakeMap>) =>
+    HEATMAP_LAYERS.map(
+        (id) =>
+            map.setLayoutProperty.mock.calls.filter(([layerId]) => layerId === id).at(-1)?.[2] as string | undefined,
+    )
+
 const clearSetData = (map: InstanceType<typeof FakeMap>) => map.sources.forEach((source) => source.setData.mockClear())
 
 const checkpointFeature = (routeId: string, mile: number) => ({ properties: { routeId, mile } })
@@ -119,7 +128,7 @@ describe('RouteMap', () => {
         expect(map.options).toMatchObject({ style: 'http://tiles.test/style.json' })
         expect(map.options).not.toHaveProperty('attributionControl', false)
         expect(map.layerIds).toEqual([
-            'heatmap-risk',
+            ...HEATMAP_LAYERS,
             'route-casing',
             'route-lines',
             'route-selected',
@@ -277,22 +286,42 @@ describe('RouteMap', () => {
     })
 
     describe('heatmap timeline', () => {
-        it('weighs points by risk, leaves Low clear, and doubles the radius with each zoom level', () => {
+        it('draws each level in its own layer, from that level up, with Low left clear', () => {
             const { map } = renderMap()
-            const layer = map.layerSpecs.get('heatmap-risk') as { paint: Record<string, unknown> }
+            const layers = HEATMAP_LAYERS.map((id) => map.layerSpecs.get(id) as Record<string, unknown>)
 
-            expect(layer).toMatchObject({ type: 'heatmap', source: 'heatmap' })
-            expect(layer.paint['heatmap-weight']).toEqual(['/', ['get', 'riskScore'], 4])
-            // Fully transparent where no point weighs anything.
-            expect((layer.paint['heatmap-color'] as unknown[]).slice(0, 5)).toEqual([
-                'interpolate',
-                ['linear'],
-                ['heatmap-density'],
-                0,
-                '#facc1500',
+            expect(layers.map(({ filter }) => filter)).toEqual([
+                ['>=', ['get', 'riskScore'], 1],
+                ['>=', ['get', 'riskScore'], 2],
+                ['>=', ['get', 'riskScore'], 3],
+                ['>=', ['get', 'riskScore'], 4],
             ])
-            expect(layer.paint['heatmap-radius']).toEqual(['interpolate', ['exponential', 2], ['zoom'], 0, 1, 12, 4096])
-            expect(layer.paint['heatmap-opacity']).toBe(0.6)
+            layers.forEach((layer) => expect(layer).toMatchObject({ type: 'heatmap', source: 'heatmap' }))
+            // Clear where no point reaches, then the level's own color.
+            expect(layers.map(({ paint }) => (paint as Record<string, unknown>)['heatmap-color'])).toEqual(
+                ['#facc15', '#f97316', '#b91c1c', '#3b0764'].map((color) => [
+                    'interpolate',
+                    ['linear'],
+                    ['heatmap-density'],
+                    0,
+                    `${color}00`,
+                    0.2,
+                    color,
+                ]),
+            )
+        })
+
+        it('doubles the heatmap radius with each zoom level, so it keeps its size on the ground', () => {
+            const { map } = renderMap()
+            const paint = (map.layerSpecs.get('heatmap-risk-severe') as { paint: Record<string, unknown> }).paint
+            const radius = paint['heatmap-radius'] as unknown[]
+            const [lowZoom, lowRadius, highZoom, highRadius] = radius.slice(3) as number[]
+
+            expect(radius.slice(0, 3)).toEqual(['interpolate', ['exponential', 2], ['zoom']])
+            expect((highRadius ?? 0) / (lowRadius ?? 1)).toBeCloseTo(2 ** ((highZoom ?? 0) - (lowZoom ?? 0)))
+            // 25 mi near latitude 40, in pixels at zoom 2: 25 / 37.25 × 4.
+            expect(lowRadius).toBeCloseTo(2.68, 2)
+            expect(paint['heatmap-opacity']).toBe(0.6)
         })
 
         it('shows departure hour on the heatmap once the style loads', () => {
@@ -303,7 +332,7 @@ describe('RouteMap', () => {
             runAnimationFrame()
 
             expect(map.setDataCalls('heatmap')).toEqual([[heatmapFrameCollections(plan)[0]]])
-            expect(map.setLayoutProperty).toHaveBeenLastCalledWith('heatmap-risk', 'visibility', 'visible')
+            expect(heatmapVisibility(map)).toEqual(['visible', 'visible', 'visible', 'visible'])
         })
 
         it('sets the moved-to hour’s collection, without a request', () => {
@@ -358,30 +387,30 @@ describe('RouteMap', () => {
             expect(detail('Arrives')).toHaveTextContent('Tue 8:53 AM EST')
         })
 
-        it('hides the layer and shows it again without new data', async () => {
+        it('hides every heatmap layer and shows them again without new data', async () => {
             const { map, user } = renderMap()
             runAnimationFrame()
             clearSetData(map)
             const toggle = screen.getByRole('checkbox', { name: 'Show heatmap' })
 
             await user.click(toggle)
-            expect(map.setLayoutProperty).toHaveBeenLastCalledWith('heatmap-risk', 'visibility', 'none')
+            expect(heatmapVisibility(map)).toEqual(['none', 'none', 'none', 'none'])
 
             await user.click(toggle)
-            expect(map.setLayoutProperty).toHaveBeenLastCalledWith('heatmap-risk', 'visibility', 'visible')
+            expect(heatmapVisibility(map)).toEqual(['visible', 'visible', 'visible', 'visible'])
 
             runAnimationFrame()
             map.sources.forEach((source) => expect(source.setData).not.toHaveBeenCalled())
         })
 
-        it('keeps the layer hidden after a style reload', async () => {
+        it('keeps the heatmap hidden after a style reload', async () => {
             const { map, user } = renderMap()
             await user.click(screen.getByRole('checkbox', { name: 'Show heatmap' }))
             map.setLayoutProperty.mockClear()
 
             map.fire('style.load')
 
-            expect(map.setLayoutProperty).toHaveBeenCalledExactlyOnceWith('heatmap-risk', 'visibility', 'none')
+            expect(map.setLayoutProperty.mock.calls).toEqual(HEATMAP_LAYERS.map((id) => [id, 'visibility', 'none']))
         })
 
         it('drops a pending heatmap update on unmount', () => {

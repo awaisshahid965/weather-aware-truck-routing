@@ -28,11 +28,12 @@ Build all 49 collections once per plan and memoize them. The slider then picks o
 
 ### 2. Layer
 
-- A `heatmap` source and a `heatmap-risk` layer, **below** the route casing from Session 13.
-- `heatmap-weight`: `['/', ['get', 'riskScore'], 4]`. Low has weight 0, so it stays clear.
-- `heatmap-color`: transparent at density 0, then `RISK_COLORS` as density rises.
-- `heatmap-radius`: must cover the gap between points at every zoom. Points are about 25 mi apart. Use `['interpolate', ['exponential', 2], ['zoom'], …]` so the radius doubles each zoom level. Tune by eye.
+- A `heatmap` source and one heatmap layer per colored level, **below** the route casing from Session 13: `heatmap-risk-moderate`, `-high`, `-severe`, `-no-travel`, worst on top. Low has no layer, so it stays clear.
+- Each layer draws the points at its level or worse: `filter: ['>=', ['get', 'riskScore'], score]`, with the default weight of 1.
+- `heatmap-color`: a see-through copy of the level's `RISK_COLORS` at density 0, full color from density 0.2. A lone point peaks at 0.4, so its core shows full color. Overlapping points stay at full color.
+- `heatmap-radius`: 25 mi, the spacing between points, in pixels. Use `['interpolate', ['exponential', 2], ['zoom'], …]` so the radius doubles each zoom level.
 - `heatmap-opacity` about 0.6, so routes stay readable.
+- Why not one layer weighted by `riskScore / 4`: the heatmap adds weights. A lone Severe point among Low ones draws as Moderate, and a wide Moderate band draws hotter than Moderate. Found in the browser check on 2026-10-16.
 
 ### 3. Slider (`weather-timeline`)
 
@@ -75,6 +76,6 @@ Build all 49 collections once per plan and memoize them. The slider then picks o
 
 ## Pitfalls
 
-- The heatmap layer adds up nearby weights. Overlapping points look "hotter". The backend's dedupe (Session 06) keeps spacing even. Don't add points on the client.
+- A heatmap layer adds up nearby weights. Never encode the level as weight in one layer: lone points read too cool, and dense ones too hot. Real points sit 5–15 mi apart where routes run side by side. Don't add points on the client.
 - A fixed `heatmap-radius` looks right at one zoom only.
 - `noUncheckedIndexedAccess`: `collections[k]` may be `undefined`. Guard it.
