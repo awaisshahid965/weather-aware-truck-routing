@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import TripContainer from '@/context/trip/trip.container'
@@ -98,5 +98,62 @@ describe('TripPlanner', () => {
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
         expect(createPlan).toHaveBeenCalledTimes(2)
         expect(createPlan.mock.calls[1]?.[0]).toStrictEqual(createPlan.mock.calls[0]?.[0])
+    })
+
+    it('selects the recommended route by default, and another on click', async () => {
+        const createPlan = vi
+            .spyOn(TripService, 'createPlan')
+            .mockImplementation(() => Promise.resolve(makeRoutePlan()))
+        const user = renderPlanner()
+        await fillTripForm(user, SARA_TRIP)
+        await user.click(screen.getByRole('button', { name: 'Plan routes' }))
+
+        const route2 = await screen.findByRole('button', { name: /^Route 2/ })
+        const route1 = screen.getByRole('button', { name: /^Route 1/ })
+        expect(route2).toHaveAttribute('aria-pressed', 'true')
+        await user.click(route1)
+        expect(route1).toHaveAttribute('aria-pressed', 'true')
+        expect(route2).toHaveAttribute('aria-pressed', 'false')
+        expect(within(route2).getByText('Recommended')).toBeInTheDocument()
+
+        // A new plan resets the choice: its ids name different routes.
+        expect(createPlan).toHaveBeenCalledTimes(1)
+        await user.click(screen.getByRole('button', { name: 'Plan routes' }))
+        await waitFor(() =>
+            expect(screen.getByRole('button', { name: /^Route 2/ })).toHaveAttribute('aria-pressed', 'true'),
+        )
+    })
+
+    it('selects route 1 when no route is recommended', async () => {
+        const plan = makeRoutePlan({ recommendedRouteId: null })
+        plan.routes.forEach((route) => {
+            route.recommended = false
+            route.summary.noTravelMiles = 5
+        })
+        vi.spyOn(TripService, 'createPlan').mockResolvedValue(plan)
+        const user = renderPlanner()
+        await fillTripForm(user, SARA_TRIP)
+        await user.click(screen.getByRole('button', { name: 'Plan routes' }))
+
+        expect(await screen.findByRole('button', { name: /^Route 1/ })).toHaveAttribute('aria-pressed', 'true')
+        expect(screen.getByText('No route recommended')).toBeInTheDocument()
+    })
+
+    it('names the route count when the provider returns too few, with a retry', async () => {
+        vi.spyOn(TripService, 'createPlan').mockRejectedValue(
+            new ApiError({
+                status: 422,
+                code: 'INSUFFICIENT_ROUTES',
+                message: 'Not enough routes.',
+                details: { availableCount: 2 },
+            }),
+        )
+        const user = renderPlanner()
+        await fillTripForm(user, SARA_TRIP)
+        await user.click(screen.getByRole('button', { name: 'Plan routes' }))
+
+        const alert = await screen.findByRole('alert')
+        expect(alert).toHaveTextContent('The routing provider returned 2 routes. Three are needed to compare.')
+        expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     })
 })
