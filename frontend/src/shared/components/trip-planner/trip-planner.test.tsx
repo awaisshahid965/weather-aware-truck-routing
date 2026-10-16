@@ -146,6 +146,19 @@ describe('TripPlanner', () => {
         expect(screen.getByText('No route recommended')).toBeInTheDocument()
     })
 
+    it('shows the daily limit message from the API when the demo has used its day', async () => {
+        const message =
+            'This demo has reached its daily limit for route plans, which keeps it free to run. Try again after midnight UTC.'
+        vi.spyOn(TripService, 'createPlan').mockRejectedValue(
+            new ApiError({ status: 429, code: 'RATE_LIMITED', message, details: { retryAfterSeconds: 3600 } }),
+        )
+        const user = renderPlanner()
+        await fillTripForm(user, SARA_TRIP)
+        await user.click(screen.getByRole('button', { name: 'Plan routes' }))
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    })
+
     it('says when the provider found no route, with a retry', async () => {
         vi.spyOn(TripService, 'createPlan').mockRejectedValue(
             new ApiError({
