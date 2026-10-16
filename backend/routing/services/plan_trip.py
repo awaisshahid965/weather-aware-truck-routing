@@ -8,8 +8,7 @@ any gap in the forecast fails the whole plan.
 import logging
 import math
 import time
-from collections.abc import Callable, Iterable, Iterator, Sequence
-from contextlib import contextmanager
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -31,7 +30,7 @@ from routing.domain.models import (
 from routing.domain.ranking import recommend, summarize
 from routing.domain.risk import RiskRules, classify
 from routing.domain.sampling import CHECKPOINT_INTERVALS_MILES, build_checkpoints
-from routing.ports.errors import ForecastRangeError, ProviderError, ProviderTimeoutError
+from routing.ports.errors import ForecastRangeError
 from routing.ports.forecast_provider import ForecastProvider
 from routing.ports.risk_rules import RiskRulesSource
 from routing.ports.route_provider import RouteProvider
@@ -40,7 +39,7 @@ from routing.services.errors import (
     InputValidationError,
     InsufficientRoutesError,
     UpstreamError,
-    UpstreamTimeoutError,
+    provider_errors,
 )
 
 logger = logging.getLogger(__name__)
@@ -195,7 +194,7 @@ class PlanTripService:
 
     def _find_routes(self, request: PlanTripInput) -> tuple[RouteCandidate, ...]:
         """The first 3 routes in provider order. Each is checked against the length cap before any weather call."""
-        with _provider_errors('routing'):
+        with provider_errors('routing'):
             found = self._routes.find_routes(request.origin.point, request.destination.point, request.departure_at)
         if len(found) < ROUTES_PER_PLAN:
             raise InsufficientRoutesError(len(found))
@@ -212,7 +211,7 @@ class PlanTripService:
     def _fetch(self, points: Sequence[GeoPoint], start_at: datetime, end_at: datetime) -> list[HourlySeries]:
         """Every forecast the plan reads, in one call."""
         try:
-            with _provider_errors('forecast'):
+            with provider_errors('forecast'):
                 series = self._forecast.hourly(points, start_at, end_at)
         except ForecastRangeError as exc:
             # Not a ProviderError: the provider answered, but the trip reaches past its forecast.
@@ -223,17 +222,6 @@ class PlanTripService:
         if len(series) != len(points):
             raise UpstreamError(f'the forecast provider returned {len(series)} series for {len(points)} points')
         return series
-
-
-@contextmanager
-def _provider_errors(provider: str) -> Iterator[None]:
-    """Turn a port's provider errors into service errors. The original stays as `__cause__` for the logs."""
-    try:
-        yield
-    except ProviderTimeoutError as exc:
-        raise UpstreamTimeoutError(f'the {provider} provider did not answer in time') from exc
-    except ProviderError as exc:
-        raise UpstreamError(f'the {provider} provider failed') from exc
 
 
 def _share_forecasts(points: Iterable[GeoPoint], dedupe_miles: float) -> tuple[list[GeoPoint], dict[GeoPoint, int]]:

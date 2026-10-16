@@ -11,6 +11,8 @@ import logging
 from datetime import UTC, datetime
 from typing import override
 
+from django.http import HttpRequest
+
 # Attributes every LogRecord carries. Anything else on a record came from `extra=`.
 _RECORD_ATTRIBUTES = frozenset(logging.makeLogRecord({}).__dict__) | {'message', 'asctime'}
 
@@ -24,7 +26,15 @@ class JsonFormatter(logging.Formatter):
             'logger': record.name,
             'message': record.getMessage(),
         }
-        entry.update({key: value for key, value in record.__dict__.items() if key not in _RECORD_ATTRIBUTES})
+        entry.update({key: _loggable(value) for key, value in record.__dict__.items() if key not in _RECORD_ATTRIBUTES})
         if record.exc_info:
             entry['exception'] = self.formatException(record.exc_info)
         return json.dumps(entry, default=str)
+
+
+def _loggable(value: object) -> object:
+    # Django's own loggers attach the request to each 4xx and 5xx line. Its repr holds the
+    # query string, which can carry what a user typed, such as a place search.
+    if isinstance(value, HttpRequest):
+        return f'{value.method} {value.path}'
+    return value

@@ -4,6 +4,11 @@ Services translate domain and port errors into these, chained with `from`, so th
 layer maps one set of errors and never imports a port's.
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+from routing.ports.errors import ProviderError, ProviderTimeoutError
+
 
 class InputValidationError(Exception):
     """A business rule on the input failed. `field` is the contract's name for it, such as `departureAt`."""
@@ -36,3 +41,14 @@ class UpstreamError(Exception):
 
 class UpstreamTimeoutError(UpstreamError):
     """A provider did not answer within its deadline."""
+
+
+@contextmanager
+def provider_errors(provider: str) -> Iterator[None]:
+    """Turn a port's provider errors into service errors. The original stays as `__cause__` for the logs."""
+    try:
+        yield
+    except ProviderTimeoutError as exc:
+        raise UpstreamTimeoutError(f'the {provider} provider did not answer in time') from exc
+    except ProviderError as exc:
+        raise UpstreamError(f'the {provider} provider failed') from exc
