@@ -1,12 +1,20 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import type { FC } from 'react'
 import { useId } from 'react'
 import RouteComparison from '@/shared/components/route-comparison/route-comparison'
 import { planErrorMessage } from '@/shared/components/route-comparison/route-comparison.utils'
 import TripForm from '@/shared/components/trip-form/trip-form'
 import Button from '@/shared/ui/button/button'
+import { classNames } from '@/shared/utils/class-names'
 import useTripPlanner from './hooks/use-trip-planner'
+
+// MapLibre needs WebGL, workers and `window`. It can't render on the server.
+const RouteMap = dynamic(() => import('@/shared/components/route-map/route-map'), {
+    ssr: false,
+    loading: () => <p className="m-auto p-4 text-sm text-neutral-600">Loading the map…</p>,
+})
 
 /** The form and results in a side panel, with the map beside them. On narrow screens they stack. */
 const TripPlanner: FC = () => {
@@ -93,10 +101,15 @@ const TripPlanner: FC = () => {
 
             <section
                 aria-label="Map"
-                className="flex h-[70vh] min-h-80 items-center justify-center bg-neutral-100 p-4 lg:h-auto lg:flex-1"
+                className={classNames(
+                    'flex bg-neutral-100 lg:min-h-0 lg:flex-1',
+                    plan === null && 'h-[70vh] min-h-80 items-center justify-center p-4 lg:h-auto',
+                )}
             >
-                {plan === null && (
+                {plan === null ? (
                     <p className="text-sm text-neutral-600">The routes appear on a map here once a plan is ready.</p>
+                ) : (
+                    <RouteMap plan={plan} selectedRouteId={selectedRouteId} />
                 )}
             </section>
         </div>

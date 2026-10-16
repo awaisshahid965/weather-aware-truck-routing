@@ -92,8 +92,8 @@ Show for each route, in provider order:
 
 ## Done when
 
-- [ ] `npm run check` passes.
-- [ ] No component compares summaries to pick a winner. It reads `recommended`.
+- [x] `npm run check` passes.
+- [x] No component compares summaries to pick a winner. It reads `recommended`.
 
 ## Not in this session
 

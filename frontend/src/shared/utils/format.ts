@@ -43,3 +43,13 @@ export const formatEta = (instant: string, timeZone: string): string => {
 
 /** `0.40`, on the 0–4 scale. */
 export const formatAverageRisk = (averageRisk: number): string => averageRisk.toFixed(2)
+
+const windFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+
+/** `26 mph`, to the nearest whole mph. */
+export const formatWind = (mph: number): string => `${windFormat.format(mph)} mph`
+
+const rateFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+/** `0.12 in/h`, for rain and snow rates. */
+export const formatInchesPerHour = (inchesPerHour: number): string => `${rateFormat.format(inchesPerHour)} in/h`

@@ -90,7 +90,7 @@ Response ─► Route cards (12) · Route map (13) · Heatmap slider (14)
 | 09 | [Place search](09-place-search.md) | Backend slice | Inputs | 08 | [x] |
 | 10 | [Frontend contract and state](10-frontend-contract-state.md) | Frontend | — | contract | [x] |
 | 11 | [Trip form](11-trip-form.md) | Frontend | Inputs | 10 | [x] |
-| 12 | [Route comparison](12-route-comparison.md) | Frontend | FR-04 | 10 | [ ] |
+| 12 | [Route comparison](12-route-comparison.md) | Frontend | FR-04 | 10 | [x] |
 | 13 | [Route map](13-route-map.md) | Frontend | FR-05 | 10, 12 | [ ] |
 | 14 | [Heatmap timeline](14-heatmap-timeline.md) | Frontend | FR-06 | 13 | [ ] |
 | 15 | [Acceptance](15-acceptance.md) | Both | All AC | all | [ ] |
