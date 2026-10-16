@@ -142,7 +142,7 @@ Cases:
 
 ## Done when
 
-- [ ] `uv run poe check` passes. The import contracts confirm the service imports no adapter, Django or httpx.
+- [x] `uv run poe check` passes. The import contracts confirm the service imports no adapter, Django or httpx.
 
 ## Not in this session
 
