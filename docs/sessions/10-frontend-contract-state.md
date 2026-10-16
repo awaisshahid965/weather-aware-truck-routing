@@ -105,8 +105,8 @@ Delete the `.gitkeep` files in `context/`, `shared/types/`, `shared/services/` a
 
 ## Done when
 
-- [ ] `npm run check` passes: format, lint, types, tests.
-- [ ] No component calls `fetch`.
+- [x] `npm run check` passes: format, lint, types, tests.
+- [x] No component calls `fetch`.
 
 ## Not in this session
 
