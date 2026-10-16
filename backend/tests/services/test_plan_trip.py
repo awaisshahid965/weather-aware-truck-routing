@@ -22,6 +22,8 @@ from routing.services.errors import (
 from routing.services.plan_trip import (
     ESTIMATE_NOTICE,
     NO_TRAVEL_NOTICE,
+    ONE_ROUTE_NOTICE,
+    TWO_ROUTES_NOTICE,
     Place,
     PlanTripInput,
     PlanTripService,
@@ -166,17 +168,43 @@ def test_more_than_3_routes_keeps_the_first_3() -> None:
     assert [route.candidate for route in plan.routes] == list(ROUTES)
 
 
-@pytest.mark.parametrize('available_count', [0, 1, 2])
-def test_fewer_than_3_routes_is_insufficient_and_no_forecast_is_fetched(available_count: int) -> None:
+def test_no_route_is_insufficient_and_no_forecast_is_fetched() -> None:
     forecast = FakeForecastProvider()
     rules = FakeRiskRulesSource()
 
     with pytest.raises(InsufficientRoutesError) as caught:
-        _service(FakeRouteProvider(ROUTES[:available_count]), forecast, rules).run(REQUEST)
+        _service(FakeRouteProvider([]), forecast, rules).run(REQUEST)
 
-    assert caught.value.available_count == available_count
+    assert caught.value.available_count == 0
     assert forecast.calls == []
     assert rules.calls == 0
+
+
+def test_two_routes_are_planned_compared_and_named_in_a_notice() -> None:
+    turnpike, akron = ROUTES[:2]
+
+    plan = _service(FakeRouteProvider([turnpike, akron])).run(REQUEST)
+
+    assert [route.candidate for route in plan.routes] == [turnpike, akron]
+    assert plan.recommended_index == 1  # Akron is the faster of the two
+    assert plan.notices == (TWO_ROUTES_NOTICE, ESTIMATE_NOTICE)
+    assert len(plan.heatmap) == 49
+    assert corridor_points([turnpike, akron], max_points=90) == tuple(point.point for point in plan.heatmap[0].points)
+
+
+def test_one_route_is_planned_and_recommended_when_it_has_no_no_travel_miles() -> None:
+    plan = _service(FakeRouteProvider(ROUTES[:1])).run(REQUEST)
+
+    assert [route.candidate for route in plan.routes] == [ROUTES[0]]
+    assert plan.recommended_index == 0
+    assert plan.notices == (ONE_ROUTE_NOTICE, ESTIMATE_NOTICE)
+
+
+def test_one_route_with_no_travel_is_not_recommended_and_both_notices_show() -> None:
+    plan = _service(FakeRouteProvider(ROUTES[:1]), FakeForecastProvider(_steady_wind(60))).run(REQUEST)
+
+    assert plan.recommended_index is None
+    assert plan.notices == (NO_TRAVEL_NOTICE, ONE_ROUTE_NOTICE, ESTIMATE_NOTICE)
 
 
 # Risk

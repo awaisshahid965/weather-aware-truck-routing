@@ -24,7 +24,7 @@ from routing.services.errors import (
     UpstreamError,
     UpstreamTimeoutError,
 )
-from routing.services.plan_trip import NO_TRAVEL_NOTICE, Place, PlanTripInput
+from routing.services.plan_trip import NO_TRAVEL_NOTICE, TWO_ROUTES_NOTICE, Place, PlanTripInput
 from tests.http.fakes import (
     CLEVELAND,
     DEPARTURE_AT,
@@ -246,6 +246,19 @@ def test_no_travel_everywhere_recommends_no_route(monkeypatch: pytest.MonkeyPatc
     assert (checkpoint['risk'], checkpoint['drivers']) == ('no_travel', ['wind'])
 
 
+def test_two_routes_from_the_provider_are_a_plan_with_a_notice(monkeypatch: pytest.MonkeyPatch, client: Client) -> None:
+    _use(monkeypatch, plan_trip_service(FakeRouteProvider(ROUTES[:2])))
+
+    response = _post(client, BODY)
+
+    plan = response.json()
+    assert response.status_code == 200
+    assert [route['id'] for route in plan['routes']] == ['route-1', 'route-2']
+    assert plan['recommendedRouteId'] == 'route-2'
+    assert TWO_ROUTES_NOTICE in plan['notices']
+    assert len(plan['heatmap']['frames']) == 49
+
+
 def test_the_request_reaches_the_service_as_typed_input(monkeypatch: pytest.MonkeyPatch, client: Client) -> None:
     route_provider = FakeRouteProvider(ROUTES)
     _use(monkeypatch, plan_trip_service(route_provider))
@@ -417,9 +430,7 @@ def test_a_get_is_a_405_in_the_contract_shape(client: Client) -> None:
             {'destination': ['Must be at least 0.1 miles from the origin.']},
             id='input',
         ),
-        pytest.param(
-            InsufficientRoutesError(2), 422, 'INSUFFICIENT_ROUTES', {'availableCount': 2}, id='insufficient-routes'
-        ),
+        pytest.param(InsufficientRoutesError(0), 422, 'INSUFFICIENT_ROUTES', {'availableCount': 0}, id='no-route'),
         pytest.param(
             ForecastUnavailableError('the forecast does not cover 2026-11-17T16:00:00Z'),
             422,

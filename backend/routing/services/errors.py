@@ -20,10 +20,10 @@ class InputValidationError(Exception):
 
 
 class InsufficientRoutesError(Exception):
-    """The routing provider found fewer than the 3 routes a plan compares."""
+    """The routing provider found no route, so there is nothing to plan. One or two routes still make a plan."""
 
     def __init__(self, available_count: int) -> None:
-        super().__init__(f'the routing provider found {available_count} of the 3 routes a plan needs')
+        super().__init__('the routing provider found no route between these places')
         self.available_count = available_count
 
 
