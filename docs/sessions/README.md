@@ -92,7 +92,7 @@ Response ─► Route cards (12) · Route map (13) · Heatmap slider (14)
 | 11 | [Trip form](11-trip-form.md) | Frontend | Inputs | 10 | [x] |
 | 12 | [Route comparison](12-route-comparison.md) | Frontend | FR-04 | 10 | [x] |
 | 13 | [Route map](13-route-map.md) | Frontend | FR-05 | 10, 12 | [x] |
-| 14 | [Heatmap timeline](14-heatmap-timeline.md) | Frontend | FR-06 | 13 | [ ] |
+| 14 | [Heatmap timeline](14-heatmap-timeline.md) | Frontend | FR-06 | 13 | [x] |
 | 15 | [Acceptance](15-acceptance.md) | Both | All AC | all | [ ] |
 
 Sessions 10–12 need only the contract. They can run alongside the backend sessions, using test factories.
