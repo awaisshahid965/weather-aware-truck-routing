@@ -1,0 +1,51 @@
+# Standalone production stack: do not merge with the localhost compose.yaml.
+# docker compose --env-file .env.production -f compose.production.yaml up --build -d --wait
+name: truck-routing-production
+
+services:
+  backend:
+    build:
+      context: backend
+    restart: unless-stopped
+    environment:
+      DJANGO_DEBUG: 'false'
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env.production}
+      DJANGO_ALLOWED_HOSTS: ${APP_DOMAIN:?Set APP_DOMAIN in .env.production}
+      DJANGO_TRUST_X_FORWARDED_PROTO: 'true'
+      DJANGO_SECURE_SSL_REDIRECT: 'true'
+      DJANGO_SECURE_HSTS_SECONDS: '3600'
+      HERE_API_KEY: ${HERE_API_KEY:?Set HERE_API_KEY in .env.production}
+      LOG_FORMAT: json
+
+  frontend:
+    build:
+      context: frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: /api/v1
+        NEXT_PUBLIC_MAP_STYLE_URL: https://tiles.openfreemap.org/styles/liberty
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  proxy:
+    image: caddy:2.11.7-alpine
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env.production}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:

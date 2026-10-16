@@ -9,6 +9,7 @@ The app compares up to three routes. It checks the forecast at points along each
 ```text
 backend/           Django REST API (Python 3.14, Django 6.1)
 frontend/          Next.js web app (Node 24, Next.js 16, React 19)
+deploy/            Production deployment: Oracle Cloud VM, Docker Compose, Caddy
 docs/              Plans and working notes
 requirements.md    Product requirements
 ```
@@ -169,6 +170,10 @@ Each acceptance criterion in [`requirements.md` §8](requirements.md#8-acceptanc
 - **2026-10-16:** all 5 live tests passed. Three plans from Pittsburgh to Cleveland each returned 3 routes. With rain near Cleveland, the 4:00 PM EDT departure that day recommended Route 2, the only route that stayed Low. Calm departures on 2026-10-17 and 2026-10-19 recommended Route 1, the fastest. Dallas to Houston and Seattle to Portland each gave a plan of 2 routes, with the notice.
 - **Duration:** the request log's `duration_ms` was about 1.7 s for the first plan, while connections opened, and about 0.5 s after that.
 - **Size:** about 155 KB per plan, with 21 checkpoints and 37–38 heatmap points.
+
+## Deployment
+
+The app runs on one Oracle Cloud VM, with Caddy serving HTTPS in front of both apps. Step-by-step guide: [deploy/README.md](deploy/README.md).
 
 ## Contributing
 

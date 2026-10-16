@@ -1,0 +1,8 @@
+region           = "YOUR_HOME_REGION"
+tenancy_ocid     = "ocid1.tenancy.oc1..REPLACE_ME"
+compartment_ocid = "ocid1.tenancy.oc1..REPLACE_ME"
+oci_profile      = "DEFAULT"
+
+availability_domain_index = 1
+ssh_public_key_path       = "~/.ssh/truck-routing.pub"
+ssh_source_cidr           = "YOUR_PUBLIC_IPV4/32"

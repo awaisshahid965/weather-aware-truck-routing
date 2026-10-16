@@ -13,3 +13,15 @@ Thumbs.db
 
 # Local values for Docker Compose (for example HERE_API_KEY)
 .env
+.env.production
+
+# Terraform local credentials, state, and plans; commit the provider lockfile.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.tfplan
+crash.log
+*.pem
+*.key
