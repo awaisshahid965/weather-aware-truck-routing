@@ -61,14 +61,14 @@ Build all 49 collections once per plan and memoize them. The slider then picks o
 
 **Browser check:**
 
-- [ ] Dragging the slider is smooth. The DevTools Network tab shows no requests while dragging.
-- [ ] Hours 0 and 48 look different for a trip with changing weather.
-- [ ] Routes and checkpoints stay readable above the heatmap.
-- [ ] Works at phone width.
+- [x] Dragging the slider is smooth. The DevTools Network tab shows no requests while dragging.
+- [x] Hours 0 and 48 look different for a trip with changing weather.
+- [x] Routes and checkpoints stay readable above the heatmap.
+- [x] Works at phone width.
 
 ## Done when
 
-- [ ] `npm run check` and `npm run build` pass, and the browser check passes.
+- [x] `npm run check` and `npm run build` pass, and the browser check passes.
 
 ## Not in this session
 
