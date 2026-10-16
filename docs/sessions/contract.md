@@ -51,7 +51,7 @@ Validation:
 - `checkpointIntervalMiles` is 10, 25 or 50.
 - Labels are non-empty and at most 200 characters.
 
-Success is `200`. The shape below is **abbreviated**: arrays are shortened to show field names, and the numbers are placeholders. A real response has three routes, all checkpoints, and 49 complete frames.
+Success is `200`. The shape below is **abbreviated**: arrays are shortened to show field names, and the numbers are placeholders. A real response has up to three routes, all checkpoints, and 49 complete frames.
 
 ```json
 {
@@ -110,7 +110,8 @@ Success is `200`. The shape below is **abbreviated**: arrays are shortened to sh
 ```
 
 - Every value comes from provider data.
-- Exactly three **distinct** routes, in provider order, with ids `route-1` … `route-3`. The ids are local to the response.
+- One to three **distinct** routes: as many as the provider found, at most three, in provider order, with ids `route-1` … `route-N`. The ids are local to the response.
+- With one or two routes, `notices` says how many were found. The plan still classifies, compares and recommends them by the same rules.
 - Exactly 49 heatmap frames, offsets 0–48.
 - Never extrapolate a forecast beyond its coverage.
 
@@ -125,7 +126,7 @@ Every error uses one shape:
 | Status | `code` | When |
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | Invalid input. `details` maps field → messages. |
-| 422 | `INSUFFICIENT_ROUTES` | Fewer than 3 routes. `details.availableCount` gives the count. |
+| 422 | `INSUFFICIENT_ROUTES` | The provider found no route. `details.availableCount` is 0. |
 | 422 | `FORECAST_UNAVAILABLE` | A required forecast value is missing, invalid or out of range. |
 | 502 | `PROVIDER_ERROR` | A provider failed or returned bad data. |
 | 504 | `PROVIDER_TIMEOUT` | A provider timed out. |
@@ -189,7 +190,7 @@ The thresholds and load overrides below live in `backend/routing/rules/risk_rule
 
 - The slider covers 0–48 hours **from the entered departure**, in one-hour steps.
 - The heatmap shows combined weather and load risk, from the same classifier at each point and hour. It is an indicative weather field, not a road segment risk.
-- Points sit around the union of the three routes:
+- Points sit around the union of the plan's routes:
   - Centers every 25 mi along each route, plus points 15 mi to each side.
   - Points within 5 mi of a kept point are dropped.
   - With more than 90 points, the spacing grows ×1.25 until they fit.
@@ -208,7 +209,7 @@ The thresholds and load overrides below live in `backend/routing/rules/risk_rule
 - `return=polyline,summary,routeLabels`
 - `apiKey`
 
-HERE may return fewer alternatives. That is reported honestly, never padded. References: [routes](https://docs.here.com/routing/reference/routing-api-v8-calculateroutes), [geometry](https://docs.here.com/routing/docs/routing-v8-route-geometry).
+HERE may return fewer alternatives. The plan shows the routes it got and says how many in `notices`. It never pads with made-up routes. References: [routes](https://docs.here.com/routing/reference/routing-api-v8-calculateroutes), [geometry](https://docs.here.com/routing/docs/routing-v8-route-geometry).
 
 **HERE Geocoding v1:** `GET https://geocode.search.hereapi.com/v1/geocode` with `q`, `limit=5`, `apiKey`. Reference: [request guide](https://docs.here.com/geocoding-and-search/docs/request-constructing).
 
