@@ -33,8 +33,40 @@ const NO_CHECKPOINT: Filter = ['<', ['get', 'mile'], 0]
 
 /** Bottom to top. The heatmap stays under the routes, and checkpoints sit above every line. */
 const ROUTE_MAP_LAYERS: AddLayerObject[] = [
-    // Empty until the forecast timeline fills it.
-    { id: HEATMAP_LAYER_ID, type: 'heatmap', source: HEATMAP_SOURCE_ID },
+    // Filled by the forecast timeline, one hour at a time.
+    {
+        id: HEATMAP_LAYER_ID,
+        type: 'heatmap',
+        source: HEATMAP_SOURCE_ID,
+        paint: {
+            // Low weighs 0, so calm weather leaves the map clear.
+            'heatmap-weight': ['/', ['get', 'riskScore'], 4],
+            // Each point's kernel adds up to about 2.5 along a lone route at this radius, which cancels the kernel's
+            // 0.4 peak. So density ≈ weight there, and the default intensity of 1 lands each level on its own color.
+            // Where routes overlap, points sit closer and read hotter.
+            'heatmap-color': [
+                'interpolate',
+                ['linear'],
+                ['heatmap-density'],
+                // A see-through Moderate, not `transparent`: fading from transparent black would gray the edges.
+                0,
+                `${RISK_COLORS.moderate}00`,
+                0.25,
+                RISK_COLORS.moderate,
+                0.5,
+                RISK_COLORS.high,
+                0.75,
+                RISK_COLORS.severe,
+                1,
+                RISK_COLORS.no_travel,
+            ],
+            // 1.5× the 25 mi spacing, so neighbours blend into one field. Near latitude 40 that is about 1 px at zoom 0,
+            // and it doubles with every zoom level, as the map's scale does. Past zoom 12 it stops growing.
+            'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 0, 1, 12, 4096],
+            // Routes and checkpoints stay readable through it.
+            'heatmap-opacity': 0.6,
+        },
+    },
     {
         id: ROUTE_CASING_LAYER_ID,
         type: 'line',

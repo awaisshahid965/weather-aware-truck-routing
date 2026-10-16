@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { makeRoutePlan } from '../../../tests/factories/route-plan'
-import { checkpointsToFeatures, routesBounds, routesToFeatures } from './geojson'
+import {
+    checkpointsToFeatures,
+    frameToFeatures,
+    heatmapFrameCollections,
+    routesBounds,
+    routesToFeatures,
+} from './geojson'
 
 describe('routesToFeatures', () => {
     it('makes one line per route, in provider order, with the recommended flag', () => {
@@ -47,6 +53,40 @@ describe('checkpointsToFeatures', () => {
     })
 })
 
+describe('frameToFeatures', () => {
+    it('makes one point per heatmap point, in [longitude, latitude] order, with its score copied', () => {
+        // Hour 12 is when the wind band reaches the first point: one High, the rest Low.
+        const frame = makeRoutePlan().heatmap.frames[12]
+        if (frame === undefined) {
+            throw new Error('The factory has 49 frames.')
+        }
+
+        expect(frameToFeatures(frame)).toEqual({
+            type: 'FeatureCollection',
+            features: frame.points.map(({ longitude, latitude, riskScore }) => ({
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [longitude, latitude] },
+                properties: { riskScore },
+            })),
+        })
+        expect(frameToFeatures(frame).features[0]).toEqual({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [-79.9959, 40.4406] },
+            properties: { riskScore: 2 },
+        })
+    })
+})
+
+describe('heatmapFrameCollections', () => {
+    it('builds one collection per frame, collection k from frame k', () => {
+        const plan = makeRoutePlan()
+        const collections = heatmapFrameCollections(plan)
+
+        expect(collections).toHaveLength(49)
+        expect(collections).toEqual(plan.heatmap.frames.map(frameToFeatures))
+    })
+})
+
 describe('memoization', () => {
     it('returns the same object for the same plan, and a new one for a new plan', () => {
         const plan = makeRoutePlan()
@@ -55,6 +95,15 @@ describe('memoization', () => {
         expect(checkpointsToFeatures(plan)).toBe(checkpointsToFeatures(plan))
         expect(routesToFeatures(makeRoutePlan())).not.toBe(routesToFeatures(plan))
         expect(checkpointsToFeatures(makeRoutePlan())).not.toBe(checkpointsToFeatures(plan))
+    })
+
+    it('builds the heatmap frames once per plan: the same plan gets the same 49 objects', () => {
+        const plan = makeRoutePlan()
+        const first = heatmapFrameCollections(plan)
+
+        expect(heatmapFrameCollections(plan)).toBe(first)
+        expect(heatmapFrameCollections(plan)[48]).toBe(first[48])
+        expect(heatmapFrameCollections(makeRoutePlan())).not.toBe(first)
     })
 })
 
