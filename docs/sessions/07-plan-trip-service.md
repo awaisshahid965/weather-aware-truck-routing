@@ -62,7 +62,7 @@ class TripPlan:
 
 | Error | Raised when | HTTP code (Session 08) |
 |---|---|---|
-| `InputValidationError(field, message)` | A business rule on the input fails | `VALIDATION_ERROR` |
+| `InputValidationError(field, message)` | A business rule on the input fails, or a port raised `ForecastRangeError` | `VALIDATION_ERROR` |
 | `InsufficientRoutesError(available_count)` | Fewer than 3 routes | `INSUFFICIENT_ROUTES` |
 | `ForecastUnavailableError(reason)` | Any `ForecastGapError` | `FORECAST_UNAVAILABLE` |
 | `UpstreamError` | A port raised `ProviderError` | `PROVIDER_ERROR` |
@@ -96,7 +96,7 @@ Inject the clock. Tests need a fixed "now". The composition root (Session 08) pa
 
 1. **Validate.**
    - `departure_at` is aware and after now.
-   - `departure_at + 48 h ≤ now + forecast.max_lead_hours`.
+   - `departure_at + 48 h ≤ now + forecast.max_lead_hours`. The bound is conservative, not a promise; step 8 handles the rest.
    - Origin and destination are at least 0.1 mi apart.
    - Load is finite and ≥ 0. The interval is 10, 25 or 50.
 2. **Routes.** `routes.find_routes(...)`. Fewer than 3 → `InsufficientRoutesError(len)`. More than 3 → keep the first 3.
@@ -105,7 +105,7 @@ Inject the clock. Tests need a fixed "now". The composition root (Session 08) pa
 5. **Corridor points** (Session 06).
 6. **Dedupe forecast points.** Take all checkpoints plus corridor points. A point within `forecast_dedupe_miles` of a kept point reuses it. Keep an index map from original point to kept point.
 7. **Window.** Start is `departure_at` floored to the hour. End is `max(last ETA, departure + 48 h)` ceiled to the hour.
-8. **Fetch.** `forecast.hourly(kept_points, start, end)`, as one call.
+8. **Fetch.** `forecast.hourly(kept_points, start, end)`, as one call. A `ForecastRangeError` → `InputValidationError('departureAt', …)`: the departure is too far ahead. It is not a `ProviderError`, so it never becomes `UpstreamError`.
 9. **Rules.** `rules = self._risk_rules.current()`, **once**. Pass this one value to every `classify` and to `build_frames`. A rule change mid-request then can't mix two rule sets in one plan.
 10. **Classify.** For each checkpoint: `sample_at` → `classify(..., rules)` → `AssessedCheckpoint`.
 11. **Summaries** (Session 03) and **frames** (Session 06, with the same `rules`).
@@ -133,6 +133,7 @@ Cases:
 - Window: start ≤ departure. End ≥ last ETA and ≥ departure + 48 h.
 - Departure in the past (fixed clock) → `InputValidationError('departureAt', …)`.
 - Departure beyond the forecast range → `InputValidationError('departureAt', …)`.
+- Fake raises `ForecastRangeError` → `InputValidationError('departureAt', …)`, not `UpstreamError`.
 - Same origin and destination → `InputValidationError`.
 - Route over `max_route_miles` → `InputValidationError`. Forecast never called.
 - Fake raises `ProviderTimeoutError` → `UpstreamTimeoutError`, with the original as `__cause__`.

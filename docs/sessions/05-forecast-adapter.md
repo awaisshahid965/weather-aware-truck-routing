@@ -6,7 +6,7 @@
 | Needs | 01, 04 (provider HTTP helper, port errors) |
 | Layer | Backend domain + port + adapter |
 | Branch | `feat/forecast-adapter` · commit type `feat(backend)` |
-| Files | `backend/routing/domain/models.py`, `backend/routing/domain/errors.py`, `backend/routing/domain/forecast.py`, `backend/routing/ports/forecast_provider.py`, `backend/routing/adapters/open_meteo_forecast.py`, `backend/tests/domain/test_forecast.py`, `backend/tests/adapters/test_open_meteo_forecast.py`, `backend/tests/adapters/test_open_meteo_forecast_live.py`, `backend/tests/adapters/fixtures/open_meteo/*.json` |
+| Files | `backend/routing/domain/models.py`, `backend/routing/domain/errors.py`, `backend/routing/domain/forecast.py`, `backend/routing/ports/errors.py`, `backend/routing/ports/forecast_provider.py`, `backend/routing/adapters/provider_http.py`, `backend/routing/adapters/open_meteo_forecast.py`, `backend/tests/domain/test_forecast.py`, `backend/tests/adapters/fakes.py`, `backend/tests/adapters/test_provider_http.py`, `backend/tests/adapters/test_open_meteo_forecast.py`, `backend/tests/adapters/test_open_meteo_forecast_live.py`, `backend/tests/adapters/fixtures/open_meteo/*.json` |
 
 ## Goal
 
@@ -64,9 +64,15 @@ class ForecastProvider(Protocol):
     def hourly(self, points: Sequence[GeoPoint], start_at: datetime, end_at: datetime) -> list[HourlySeries]: ...
 ```
 
-- `max_lead_hours` is how far ahead the provider forecasts.
+- `max_lead_hours` is a conservative bound on how far ahead the provider forecasts. Callers check against it first. It is not a promise.
 - `hourly` returns one series per point, in the order of `points`.
-- Each series covers every hour from `start_at` to `end_at`, inclusive.
+- Each series covers every hour `sample_at` reads for a moment from `start_at` to `end_at`: the first hour at or after `start_at`, through the first hour at or after `end_at`.
+- When the forecast doesn't reach the whole window, `hourly` raises `ForecastRangeError`. Add it to `ports/errors.py`. It is **not** a `ProviderError`: the provider answered, but the request reaches too far ahead. Session 07 reports it as a validation error on `departureAt`.
+
+```python
+class ForecastRangeError(Exception):
+    """The forecast does not reach the whole window asked about."""
+```
 
 ### 5. Record fixtures
 
@@ -80,6 +86,7 @@ curl -s "https://api.open-meteo.com/v1/forecast?latitude=40.44,41.50&longitude=-
 - Record a one-point response too. It is an object, not a list.
 - Record one without the unit params. That gives you the metric unit strings.
 - Hand-edit variants: nulls, mismatched array lengths, an unknown unit.
+- Record the range's end: a window past it (400 `out of allowed range`), and a window over the last hours of day 16 (every value `null`). Record one other 400 too, such as an unknown variable.
 - Copy the exact `hourly_units` strings into the converter table.
 
 ### 6. Adapter (`adapters/open_meteo_forecast.py`)
@@ -96,10 +103,12 @@ class OpenMeteoForecast:
 - Match results by **index**, not coordinates. Open-Meteo snaps to its grid and returns different lat/lon.
 - Every hourly array must have the length of `time`. Otherwise raise `ProviderError`.
 - Units: map each unit string to a factor (mph, km/h, m/s; inch, mm, cm). An unknown string → `ProviderError`.
-- Parse JSON with `parse_float=Decimal`. Add rain + showers as `Decimal`, then convert to float.
+- Parse JSON with `parse_float=Decimal`. Add `parse_float` to `get_json` for this. Add rain + showers as `Decimal`, then convert to float.
+- Range: a 400 whose `reason` says `out of allowed range` → `ForecastRangeError`. Add an `explain_rejection(status, body)` hook to `get_json` so the adapter can read a refusal's body; never store or quote that body. Any other 400 stays `ProviderError`.
+- Range: when a series' last hours have no value at all, before the window ends → `ForecastRangeError`. A point with no value anywhere is a gap instead; `sample_at` decides.
 - Times: `datetime.fromtimestamp(seconds, tz=UTC)`.
 - Keep None for nulls. `sample_at` decides later.
-- `max_lead_hours` = 384 (16 days, Open-Meteo's maximum). Keep it as a named constant that cites the source.
+- `max_lead_hours` = 354 (14 days 18 hours). Keep it as a named constant that cites the source. Open-Meteo forecasts 16 whole UTC days, and its last 5 hours came back `null` on 2026-10-16. 354 stays inside that from any time of day. It is still not a guarantee.
 - Log `generationtime_ms` and batch sizes with `extra=`, never raw bodies.
 
 ### 7. Live test
@@ -133,6 +142,10 @@ Mark it `@pytest.mark.live`. Fetch two real points for the next 6 hours. Assert 
 - Array length mismatch → `ProviderError`.
 - **Float trap:** rain 0.09 + showers 0.01 → exactly 0.10 → MODERATE via `classify(..., SPEC_RULES)`. Plain float addition gives `0.09999999999999999`, which is LOW. This test proves the `Decimal` path.
 - Request params include `wind_speed_unit=mph`, `precipitation_unit=inch`, `timezone=GMT` and `timeformat=unixtime`.
+- **Range:** the recorded `out of allowed range` 400 → `ForecastRangeError`, not `ProviderError`. Another 400 → `ProviderError`.
+- **Range:** the recorded `null` tail inside the window → `ForecastRangeError`. The same tail after the window's end → fine.
+- A last hour missing only some values → a gap at `sample_at`, not a range error.
+- Live: a window 30 days out → `ForecastRangeError`. It catches a change in Open-Meteo's wording.
 
 ## Done when
 
@@ -148,3 +161,5 @@ Mark it `@pytest.mark.live`. Fetch two real points for the next 6 hours. Assert 
 - Don't use `precipitation`. It includes snow water. Use `rain + showers`.
 - `snowfall` is snow depth. That matches the in/hr snow table.
 - One deadline per batch would let 10 batches take 10× as long. Share one.
+- Open-Meteo's mph unit string is `mp/h`, not `mph`.
+- A too-far departure must never look like a provider failure. Only the two range signals above become `ForecastRangeError`.

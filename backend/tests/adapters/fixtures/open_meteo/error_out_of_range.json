@@ -1,0 +1,4 @@
+{
+  "reason": "Parameter 'start_hour' is out of allowed range from 2026-07-15 to 2026-10-31",
+  "error": true
+}

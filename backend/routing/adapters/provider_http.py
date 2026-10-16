@@ -32,20 +32,27 @@ def get_json(
     params: Mapping[str, str],
     *,
     deadline_seconds: float,
+    parse_float: Callable[[str], object] = float,
+    explain_rejection: Callable[[int, object], Exception | None] | None = None,
     clock: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> object:
     """GET `url` with `params` and return the decoded JSON body.
 
     `deadline_seconds` bounds the whole call, retries and waits included. Each attempt keeps
-    the client's own per-phase timeouts, cut down to the time left. `clock` and `sleep` let
-    tests run the retry policy without waiting.
+    the client's own per-phase timeouts, cut down to the time left. `parse_float` builds each
+    number that has a fraction or an exponent, as in `json.loads`; `Decimal` keeps the exact
+    digits sent. `clock` and `sleep` let tests run the retry policy without waiting.
+
+    `explain_rejection(status, body)` sees each answer that is refused without a retry, with
+    its JSON body (None when the body is not JSON). It may return a more specific error to
+    raise instead. The body is provider data, so that error's message must not quote it.
 
     Raises `ProviderTimeoutError` when time runs out and `ProviderError` for any other failure.
     """
     if not deadline_seconds > 0:
         raise ValueError(f'deadline_seconds must be > 0, got {deadline_seconds!r}')
-    return _Call(client, url, params, deadline_seconds, clock).run(sleep)
+    return _Call(client, url, params, deadline_seconds, parse_float, explain_rejection, clock).run(sleep)
 
 
 class _TransientError(Exception):
@@ -66,12 +73,16 @@ class _Call:
         url: str,
         params: Mapping[str, str],
         deadline_seconds: float,
+        parse_float: Callable[[str], object],
+        explain_rejection: Callable[[int, object], Exception | None] | None,
         clock: Callable[[], float],
     ) -> None:
         self._client = client
         self._url = url
         self._params = params
         self._deadline_seconds = deadline_seconds
+        self._parse_float = parse_float
+        self._explain_rejection = explain_rejection
         self._clock = clock
         self._ends_at = clock() + deadline_seconds
         self._path = urlsplit(url).path
@@ -100,7 +111,7 @@ class _Call:
                 )
                 sleep(delay)
                 continue
-            return _decode(body, self._path)
+            return _decode(body, self._path, self._parse_float)
 
     def _attempt(self) -> bytes:
         remaining = self._ends_at - self._clock()
@@ -128,8 +139,18 @@ class _Call:
                 ProviderError(f'GET {self._path} answered {status}'), _retry_after_seconds(response.headers)
             )
         if not 200 <= status < 300:
-            raise ProviderError(f'GET {self._path} answered {status}')
+            raise self._rejected(response)
+        return self._read_body(response)
 
+    def _rejected(self, response: httpx.Response) -> Exception:
+        rejected = ProviderError(f'GET {self._path} answered {response.status_code}')
+        if self._explain_rejection is None:
+            return rejected
+        # The body is read under the same size and time limits as any other.
+        explained = self._explain_rejection(response.status_code, _decode_or_none(self._read_body(response)))
+        return rejected if explained is None else explained
+
+    def _read_body(self, response: httpx.Response) -> bytes:
         declared = response.headers.get('Content-Length', '')
         if declared.isascii() and declared.isdigit() and int(declared) > MAX_BODY_BYTES:
             raise self._too_large()
@@ -173,12 +194,19 @@ def _retry_after_seconds(headers: httpx.Headers) -> float | None:
     return float(value) if value.isascii() and value.isdigit() else None
 
 
-def _decode(body: bytes, path: str) -> object:
+def _decode(body: bytes, path: str, parse_float: Callable[[str], object]) -> object:
     try:
-        return json.loads(body, parse_constant=_reject_constant)
+        return json.loads(body, parse_float=parse_float, parse_constant=_reject_constant)
     except ValueError, RecursionError:
         # RecursionError: deeply nested arrays exhaust the parser's stack.
         raise ProviderError(f'GET {path} answered with invalid JSON') from None
+
+
+def _decode_or_none(body: bytes) -> object:
+    try:
+        return json.loads(body, parse_constant=_reject_constant)
+    except ValueError, RecursionError:
+        return None
 
 
 def _reject_constant(name: str) -> NoReturn:

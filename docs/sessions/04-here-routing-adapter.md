@@ -127,8 +127,8 @@ Use `httpx.MockTransport`. No network.
 
 ## Done when
 
-- [ ] `uv run poe check` passes. The import contracts confirm the adapter imports neither `services` nor `http`.
-- [ ] Fixtures contain no API key.
+- [x] `uv run poe check` passes. The import contracts confirm the adapter imports neither `services` nor `http`.
+- [x] Fixtures contain no API key.
 
 ## Not in this session
 
