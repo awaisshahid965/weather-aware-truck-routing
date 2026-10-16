@@ -5,6 +5,7 @@ limits are named constants here (contract → Limits), not environment settings.
 """
 
 import atexit
+import tempfile
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
@@ -30,6 +31,18 @@ HTTP_READ_TIMEOUT_SECONDS = 10
 ROUTING_DEADLINE_SECONDS = 15
 FORECAST_DEADLINE_SECONDS = 25
 GEOCODING_DEADLINE_SECONDS = 5
+
+# HERE's free monthly allowance is 5,000 truck routes and 30,000 geocodes, and use past it is billed.
+# A month at these daily limits (31 x 125 = 3,875 and 31 x 600 = 18,600) stays under both, with room
+# left for development, which uses the same key. Each plan also reads about 40 Open-Meteo locations,
+# so 125 plans stay under Open-Meteo's 10,000 a day too.
+ROUTE_PLANS_PER_DAY = 125
+PLACE_SEARCHES_PER_DAY = 600
+# Per client address, so one visitor can't use up the day. Typing two places is a few searches.
+ROUTE_PLANS_PER_VISITOR = '10/hour'
+PLACE_SEARCHES_PER_VISITOR = '60/hour'
+# The site-wide daily counts. Inside the container, so a redeploy starts the day's counts again.
+DAILY_QUOTA_PATH = Path(tempfile.gettempdir()) / 'truck-routing' / 'daily-quota.json'
 
 RISK_RULES_PATH = Path(__file__).resolve().parent / 'rules' / 'risk_rules.json'
 

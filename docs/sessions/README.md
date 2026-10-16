@@ -95,6 +95,7 @@ Response ─► Route cards (12) · Route map (13) · Heatmap slider (14)
 | 14 | [Heatmap timeline](14-heatmap-timeline.md) | Frontend | FR-06 | 13 | [x] |
 | 15 | [Acceptance](15-acceptance.md) | Both | All AC | all | [ ] |
 | 16 | [Fewer routes and map summary](16-fewer-routes-map-summary.md) | Both | FR-01, FR-05, FR-06 | 15 | [ ] |
+| 17 | [Provider request limits](17-provider-request-limits.md) | Backend HTTP | Hosting cost | 16 | [ ] |
 
 Sessions 10–12 need only the contract. They can run alongside the backend sessions, using test factories.
 
