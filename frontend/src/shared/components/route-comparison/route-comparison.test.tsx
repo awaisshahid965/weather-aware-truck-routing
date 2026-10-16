@@ -54,6 +54,17 @@ describe('RouteComparison', () => {
         expect(within(cards()[1]!).getByText('Recommended')).toBeInTheDocument()
     })
 
+    it('shows the routes the provider found, with the backend’s notice, when there are fewer than three', () => {
+        const notice = 'Only 2 routes were found for this trip, so the plan compares those 2.'
+        const plan = makeRoutePlan({ notices: [notice] })
+        plan.routes = plan.routes.slice(0, 2)
+
+        renderComparison(plan)
+
+        expect(cards().map((card) => within(card).getByText(/^Route \d$/).textContent)).toEqual(['Route 1', 'Route 2'])
+        expect(within(screen.getByRole('list', { name: 'Notices' })).getByText(notice)).toBeInTheDocument()
+    })
+
     it('warns on a route with No Travel miles', () => {
         const plan = makeRoutePlan()
         plan.routes[2]!.summary.noTravelMiles = 8.5

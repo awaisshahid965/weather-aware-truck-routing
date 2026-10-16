@@ -92,10 +92,24 @@ describe('parseRoutePlan', () => {
         expect(() => parseRoutePlan(plan)).toThrow('routes[0].etaAt')
     })
 
-    it('rejects two routes', () => {
-        const plan = replaceAt(makeRoutePlan(), ['routes'], makeRoutePlan().routes.slice(0, 2))
+    it.each([1, 2])('accepts %i routes: the provider found fewer than 3', (count) => {
+        const routes = makeRoutePlan()
+            .routes.slice(0, count)
+            .map((route, index) => ({ ...route, recommended: index === 0 }))
+        const plan = makeRoutePlan({ routes, recommendedRouteId: 'route-1' })
 
-        expect(() => parseRoutePlan(plan)).toThrow('routes: expected 3 routes, not 2')
+        expect(parseRoutePlan(plan).routes).toHaveLength(count)
+    })
+
+    it.each([0, 4])('rejects %i routes', (count) => {
+        const routes = Array.from({ length: count }, (_, index) => ({
+            ...makeRoutePlan().routes[0],
+            id: `route-${index + 1}`,
+            recommended: false,
+        }))
+        const plan = replaceAt(replaceAt(makeRoutePlan(), ['routes'], routes), ['recommendedRouteId'], null)
+
+        expect(() => parseRoutePlan(plan)).toThrow(`routes: expected 1 to 3 routes, not ${count}`)
     })
 
     it('rejects a recommended flag that disagrees with recommendedRouteId', () => {

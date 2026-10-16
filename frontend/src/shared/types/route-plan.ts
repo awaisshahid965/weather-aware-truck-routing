@@ -4,8 +4,8 @@ import type { RiskDriver, RiskLevel } from './risk'
 export const CHECKPOINT_INTERVALS_MILES = [10, 25, 50] as const
 export type CheckpointIntervalMiles = (typeof CHECKPOINT_INTERVALS_MILES)[number]
 
-/** Every plan has exactly this many routes. With fewer, the API answers `INSUFFICIENT_ROUTES`. */
-export const ROUTE_COUNT = 3
+/** A plan has 1 to this many routes, as many as the routing provider found. With none, the API answers `INSUFFICIENT_ROUTES`. */
+export const MAX_ROUTE_COUNT = 3
 
 /** One frame per hour, offsets 0–48 from departure. */
 export const HEATMAP_FRAME_COUNT = 49
