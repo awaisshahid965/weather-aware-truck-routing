@@ -1,10 +1,17 @@
 import math
+from itertools import pairwise
 
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from routing.domain.geometry import EARTH_RADIUS_MILES, bearing_degrees, destination_point, haversine_miles
+from routing.domain.geometry import (
+    EARTH_RADIUS_MILES,
+    bearing_degrees,
+    destination_point,
+    haversine_miles,
+    simplify,
+)
 from routing.domain.models import GeoPoint
 
 points = st.builds(
@@ -109,3 +116,96 @@ def test_a_destination_lies_at_the_distance_and_bearing_asked(start: GeoPoint, b
 def test_geo_point_rejects_coordinates_off_the_globe(latitude: float, longitude: float) -> None:
     with pytest.raises(ValueError, match='must be within'):
         GeoPoint(latitude, longitude)
+
+
+# Simplify for display
+
+MILES_PER_DEGREE = EARTH_RADIUS_MILES * math.pi / 180
+FlatPoint = tuple[float, float]
+
+
+def _flat(point: GeoPoint) -> FlatPoint:
+    """Miles east and north of 40°N 80°W. Flat is close enough over the few hundred feet these lines span."""
+    return (
+        (point.longitude + 80) * MILES_PER_DEGREE * math.cos(math.radians(40)),
+        (point.latitude - 40) * MILES_PER_DEGREE,
+    )
+
+
+def _miles_to_segment(point: FlatPoint, start: FlatPoint, end: FlatPoint) -> float:
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    px, py = point[0] - start[0], point[1] - start[1]
+    length_squared = dx * dx + dy * dy
+    t = 0.0 if length_squared == 0 else min(1.0, max(0.0, (px * dx + py * dy) / length_squared))
+    return math.hypot(px - t * dx, py - t * dy)
+
+
+@pytest.mark.parametrize(
+    'line',
+    [
+        pytest.param([GeoPoint(40 + k * 0.01, -80) for k in range(11)], id='along-a-meridian'),
+        pytest.param([GeoPoint(40, -80 + k * 0.01) for k in range(11)], id='along-a-parallel'),
+        pytest.param([GeoPoint(40 + k * 0.001, -80 + k * 0.001) for k in range(11)], id='diagonal'),
+    ],
+)
+def test_collinear_points_simplify_to_the_endpoints(line: list[GeoPoint]) -> None:
+    simplified = simplify(line)
+
+    assert simplified == [line[0], line[-1]]
+
+
+@pytest.mark.parametrize(('offset_miles', 'kept'), [(0.009, False), (0.011, True)])
+def test_a_point_is_dropped_only_within_the_tolerance(offset_miles: float, kept: bool) -> None:
+    start, end = GeoPoint(40, -80), GeoPoint(40.1, -80)
+    bump = destination_point(GeoPoint(40.05, -80), 90, offset_miles)
+
+    simplified = simplify([start, bump, end], tolerance_miles=0.01)
+
+    assert (bump in simplified) is kept
+
+
+@pytest.mark.parametrize(
+    'line',
+    [
+        pytest.param([], id='empty'),
+        pytest.param([GeoPoint(40, -80)], id='one-point'),
+        pytest.param([GeoPoint(40, -80), GeoPoint(40, -80)], id='two-equal-points'),
+    ],
+)
+def test_a_line_under_3_points_is_returned_as_is(line: list[GeoPoint]) -> None:
+    assert simplify(line) == line
+
+
+@given(line=st.lists(points, min_size=2, max_size=30))
+def test_simplify_keeps_both_endpoints_and_only_input_points_in_order(line: list[GeoPoint]) -> None:
+    simplified = simplify(line)
+
+    assert simplified[0] == line[0]
+    assert simplified[-1] == line[-1]
+    remaining = iter(line)
+    assert all(point in remaining for point in simplified)  # a subsequence of the input
+
+
+# Each step north is about 0.035 mi; each wiggle reaches about twice the tolerance, so some points go and some stay.
+wiggles = st.lists(
+    st.tuples(st.floats(min_value=-0.0003, max_value=0.0003), st.floats(min_value=-0.0003, max_value=0.0003)),
+    min_size=3,
+    max_size=40,
+)
+
+
+@given(offsets=wiggles)
+def test_no_point_is_farther_than_the_tolerance_from_the_simplified_line(offsets: list[tuple[float, float]]) -> None:
+    line = [GeoPoint(40 + k * 0.0005 + d_lat, -80 + d_lon) for k, (d_lat, d_lon) in enumerate(offsets)]
+
+    simplified = [_flat(point) for point in simplify(line, tolerance_miles=0.01)]
+
+    for point in line:
+        deviation = min(_miles_to_segment(_flat(point), a, b) for a, b in pairwise(simplified))
+        assert deviation <= 0.01 * 1.01  # 1% for the flat approximation
+
+
+@pytest.mark.parametrize('tolerance_miles', [-0.01, math.nan, math.inf])
+def test_simplify_rejects_an_impossible_tolerance(tolerance_miles: float) -> None:
+    with pytest.raises(ValueError, match='tolerance_miles'):
+        simplify([GeoPoint(40, -80)], tolerance_miles=tolerance_miles)

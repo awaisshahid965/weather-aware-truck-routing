@@ -177,7 +177,8 @@ class PlanTripService:
             raise InputValidationError('departureAt', 'must be in the future')
         # Conservative, not a promise: `_fetch` still turns the provider's own refusal into this error.
         lead_hours = self._forecast.max_lead_hours
-        if departure_at + timedelta(hours=HEATMAP_HOURS) > now + timedelta(hours=lead_hours):
+        # A difference, not a sum: adding 48 h to a departure late in year 9999 overflows.
+        if departure_at - now > timedelta(hours=lead_hours - HEATMAP_HOURS):
             raise InputValidationError(
                 'departureAt',
                 f'must be at most {lead_hours - HEATMAP_HOURS} hours from now, '

@@ -1,10 +1,13 @@
 """Distances on the Earth's surface, standard library only."""
 
 import math
+from collections.abc import Sequence
 
 from routing.domain.models import GeoPoint
 
 EARTH_RADIUS_MILES = 3958.7613  # mean radius; the spherical model is accurate enough here
+DISPLAY_TOLERANCE_MILES = 0.01  # about 16 m: too small to see at any zoom that shows a whole route
+_MERCATOR_MAX_LATITUDE = 85.05112878  # Web Mercator's edge; the poles would project to infinity
 
 
 def haversine_miles(a: GeoPoint, b: GeoPoint) -> float:
@@ -48,3 +51,46 @@ def destination_point(start: GeoPoint, bearing_deg: float, distance_miles: float
         # Wrap across the antimeridian into [-180, 180).
         longitude=(longitude + 540) % 360 - 180,
     )
+
+
+def simplify(points: Sequence[GeoPoint], tolerance_miles: float = DISPLAY_TOLERANCE_MILES) -> list[GeoPoint]:
+    """Ramer-Douglas-Peucker: fewer points, none of the dropped ones more than `tolerance_miles` off the line.
+
+    For drawing only. Checkpoints are sampled from the full shape; a simplified one would move
+    them off the road. The map draws each segment straight in Web Mercator, so the deviation is
+    measured there and converted to miles at each point's latitude. Both endpoints are kept.
+    """
+    if not (math.isfinite(tolerance_miles) and tolerance_miles >= 0):
+        raise ValueError(f'tolerance_miles must be finite and >= 0, got {tolerance_miles!r}')
+    if len(points) < 3:
+        return list(points)
+    xs, ys = zip(*(_web_mercator(point) for point in points), strict=True)
+    # Mercator stretches lengths by 1 / cos(latitude), so this undoes it at each point.
+    miles_per_unit = [EARTH_RADIUS_MILES * math.cos(math.radians(point.latitude)) for point in points]
+    keep = [False] * len(points)
+    keep[0] = keep[-1] = True
+    # A stack, not recursion: a long winding route can split deeper than Python's recursion limit.
+    spans = [(0, len(points) - 1)]
+    while spans:
+        first, last = spans.pop()
+        start_x, start_y = xs[first], ys[first]
+        dx, dy = xs[last] - start_x, ys[last] - start_y
+        length_squared = dx * dx + dy * dy
+        farthest, deviation_miles = first, 0.0
+        for index in range(first + 1, last):
+            px, py = xs[index] - start_x, ys[index] - start_y
+            # Distance to the segment, not the infinite line: a route can double back past its ends.
+            t = 0.0 if length_squared == 0 else min(1.0, max(0.0, (px * dx + py * dy) / length_squared))
+            miles = math.hypot(px - t * dx, py - t * dy) * miles_per_unit[index]
+            if miles > deviation_miles:
+                farthest, deviation_miles = index, miles
+        if deviation_miles > tolerance_miles:
+            keep[farthest] = True
+            spans += [(first, farthest), (farthest, last)]
+    return [point for point, kept in zip(points, keep, strict=True) if kept]
+
+
+def _web_mercator(point: GeoPoint) -> tuple[float, float]:
+    """The point on a Web Mercator plane, in Earth radii. Longitude is used as is: truck routes never cross ±180°."""
+    latitude = math.radians(max(-_MERCATOR_MAX_LATITUDE, min(_MERCATOR_MAX_LATITUDE, point.latitude)))
+    return math.radians(point.longitude), math.asinh(math.tan(latitude))
