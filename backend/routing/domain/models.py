@@ -2,8 +2,11 @@
 
 import math
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
+from itertools import pairwise
+
+ONE_HOUR = timedelta(hours=1)
 
 
 class RiskLevel(StrEnum):
@@ -49,6 +52,36 @@ class WeatherSample:
         require_non_negative('wind_mph', self.wind_mph)
         require_non_negative('rain_in_per_hour', self.rain_in_per_hour)
         require_non_negative('snow_in_per_hour', self.snow_in_per_hour)
+
+
+@dataclass(frozen=True, slots=True)
+class HourlySeries:
+    """A provider's hourly forecast at one place.
+
+    Values stay as the provider sent them, gaps included. A gap matters only at an hour
+    someone reads, so `sample_at` judges each value when it is used.
+    """
+
+    hours: tuple[datetime, ...]  # aware UTC, ascending, 1 h apart
+    wind_mph: tuple[float | None, ...]
+    rain_in_per_hour: tuple[float | None, ...]  # rain + showers
+    snow_in_per_hour: tuple[float | None, ...]
+
+    def __post_init__(self) -> None:
+        for name, values in (
+            ('wind_mph', self.wind_mph),
+            ('rain_in_per_hour', self.rain_in_per_hour),
+            ('snow_in_per_hour', self.snow_in_per_hour),
+        ):
+            if len(values) != len(self.hours):
+                raise ValueError(f'{name} has {len(values)} values for {len(self.hours)} hours')
+        for hour in self.hours:
+            # A naive hour has no offset, so it fails here too.
+            if hour.utcoffset() != timedelta(0):
+                raise ValueError(f'hours must be aware UTC, got {hour.isoformat()}')
+        for earlier, later in pairwise(self.hours):
+            if later - earlier != ONE_HOUR:
+                raise ValueError(f'hours must be 1 h apart, got {later.isoformat()} after {earlier.isoformat()}')
 
 
 @dataclass(frozen=True, slots=True)

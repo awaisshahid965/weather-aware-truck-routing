@@ -2,12 +2,14 @@ import logging
 import threading
 import traceback
 from collections.abc import Callable, Iterator
+from decimal import Decimal
 
 import httpx
 import pytest
 
 from routing.adapters.provider_http import MAX_BODY_BYTES, MAX_RETRIES, get_json
 from routing.ports.errors import ProviderError, ProviderTimeoutError
+from tests.adapters.fakes import FakeClock
 
 URL = 'https://provider.example/v1/data'
 KEY = 'key-that-must-stay-secret'
@@ -17,21 +19,6 @@ CLIENT_TIMEOUT = httpx.Timeout(10, connect=3)
 OK = {'ok': True}
 
 Reply = Callable[[httpx.Request], httpx.Response]
-
-
-class FakeClock:
-    """Monotonic time that moves only when told: by `sleep`, or by a provider that is slow to fail."""
-
-    def __init__(self) -> None:
-        self.now = 0.0
-        self.sleeps: list[float] = []
-
-    def __call__(self) -> float:
-        return self.now
-
-    def sleep(self, seconds: float) -> None:
-        self.sleeps.append(seconds)
-        self.now += seconds
 
 
 class ScriptedProvider:
@@ -246,6 +233,15 @@ def test_a_body_that_is_not_json_is_rejected(clock: FakeClock, body: bytes) -> N
         _get(provider, clock)
 
 
+def test_parse_float_keeps_the_exact_digits(clock: FakeClock) -> None:
+    provider = ScriptedProvider(lambda _request: httpx.Response(200, content=b'{"rain": 0.09, "hours": 3}'))
+
+    with httpx.Client(transport=httpx.MockTransport(provider)) as client:
+        result = get_json(client, URL, PARAMS, deadline_seconds=DEADLINE_SECONDS, parse_float=Decimal, clock=clock)
+
+    assert result == {'rain': Decimal('0.09'), 'hours': 3}
+
+
 def test_json_nested_deeper_than_the_stack_is_rejected(clock: FakeClock) -> None:
     # Python 3.14 stops JSON nesting where the real stack ends, and stack sizes differ between
     # machines. A thread with a small fixed stack makes the parser overflow on every machine.
@@ -269,6 +265,66 @@ def test_json_nested_deeper_than_the_stack_is_rejected(clock: FakeClock) -> None
 
     [error] = errors
     assert 'invalid JSON' in str(error)
+
+
+class Recorder:
+    """An `explain_rejection` that records what it saw and returns a set answer."""
+
+    def __init__(self, answer: Exception | None) -> None:
+        self.answer = answer
+        self.seen: list[tuple[int, object]] = []
+
+    def __call__(self, status: int, body: object) -> Exception | None:
+        self.seen.append((status, body))
+        return self.answer
+
+
+def _get_explained(provider: ScriptedProvider, clock: FakeClock, explain: Recorder) -> object:
+    with httpx.Client(transport=httpx.MockTransport(provider), timeout=CLIENT_TIMEOUT) as client:
+        return get_json(
+            client,
+            URL,
+            PARAMS,
+            deadline_seconds=DEADLINE_SECONDS,
+            explain_rejection=explain,
+            clock=clock,
+            sleep=clock.sleep,
+        )
+
+
+class OutOfRangeError(Exception):
+    pass
+
+
+def test_a_rejection_can_be_explained_by_its_body(clock: FakeClock) -> None:
+    provider = ScriptedProvider(lambda _request: httpx.Response(400, json={'reason': 'out of range'}))
+    explain = Recorder(OutOfRangeError('too far ahead'))
+
+    with pytest.raises(OutOfRangeError, match='too far ahead'):
+        _get_explained(provider, clock, explain)
+
+    assert explain.seen == [(400, {'reason': 'out of range'})]
+    assert len(provider.requests) == 1
+
+
+def test_a_rejection_left_unexplained_is_a_provider_error(clock: FakeClock) -> None:
+    provider = ScriptedProvider(lambda _request: httpx.Response(404, content=b'not json'))
+    explain = Recorder(None)
+
+    with pytest.raises(ProviderError, match='answered 404'):
+        _get_explained(provider, clock, explain)
+
+    assert explain.seen == [(404, None)]
+
+
+def test_a_transient_failure_is_retried_not_explained(clock: FakeClock) -> None:
+    provider = ScriptedProvider(_status(503), _status(200))
+    explain = Recorder(OutOfRangeError('never raised'))
+
+    result = _get_explained(provider, clock, explain)
+
+    assert result == OK
+    assert explain.seen == []
 
 
 def test_a_retry_is_logged_with_the_path(clock: FakeClock, caplog: pytest.LogCaptureFixture) -> None:

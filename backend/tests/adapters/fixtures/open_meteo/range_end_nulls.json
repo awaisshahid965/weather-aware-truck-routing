@@ -1,0 +1,68 @@
+{
+  "latitude": 40.445118,
+  "longitude": -80.005745,
+  "generationtime_ms": 0.25665760040283203,
+  "utc_offset_seconds": 0,
+  "timezone": "GMT",
+  "timezone_abbreviation": "GMT",
+  "elevation": 256.0,
+  "hourly_units": {
+    "time": "unixtime",
+    "wind_speed_10m": "mp/h",
+    "rain": "inch",
+    "showers": "inch",
+    "snowfall": "inch"
+  },
+  "hourly": {
+    "time": [
+      1793462400,
+      1793466000,
+      1793469600,
+      1793473200,
+      1793476800,
+      1793480400,
+      1793484000,
+      1793487600
+    ],
+    "wind_speed_10m": [
+      7.2,
+      7.8,
+      8.3,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "rain": [
+      0.000,
+      0.000,
+      0.000,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "showers": [
+      0.000,
+      0.000,
+      0.000,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "snowfall": [
+      0.000,
+      0.000,
+      0.000,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}

@@ -45,6 +45,7 @@ Validation:
 - Coordinates are finite. Latitude is −90..90 and longitude −180..180.
 - Origin and destination are at least 0.1 mi apart.
 - `departureAt` is a UTC instant with `Z`. It is in the future. It allows a full 48-hour heatmap inside the forecast range.
+  - The range is checked before any provider call, against a conservative bound. The provider's own answer still has the last word: if its forecast doesn't reach the plan's window, the plan fails with `VALIDATION_ERROR` on `departureAt`, never `PROVIDER_ERROR`.
 - `departureTimeZone` is a valid IANA name. It is display context only; the UTC instant is authoritative.
 - `loadWeightLb` is finite and ≥ 0.
 - `checkpointIntervalMiles` is 10, 25 or 50.
@@ -218,6 +219,8 @@ HERE may return fewer alternatives. That is reported honestly, never padded. Ref
 - `wind_speed_unit=mph`, `precipitation_unit=inch`
 - `timeformat=unixtime`, `timezone=GMT`
 - a time window covering every checkpoint ETA and departure + 48 h
+
+Its range ends in two ways. It refuses hours past it with 400 (`out of allowed range`), and its last few hours can come back `null` for every variable. Both mean the window reaches too far ahead.
 
 Reference: [docs](https://open-meteo.com/en/docs). The free public API is for non-commercial use. Commercial hosting needs Open-Meteo's paid endpoint and key, which would be a new scaffold setting.
 
