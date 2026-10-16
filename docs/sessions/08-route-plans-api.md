@@ -117,9 +117,9 @@ Override the service with a fake: `monkeypatch.setattr(bootstrap, 'get_plan_trip
 
 ## Done when
 
-- [ ] `uv run poe check` passes. The import contracts confirm `http` reaches adapters only through `bootstrap`.
-- [ ] `curl -X POST localhost:8000/api/v1/route-plans` with a real key returns a plan or a contract error.
-- [ ] Breaking `risk_rules.json` locally makes `uv run python manage.py check` fail with `routing.E001`. Restore the file afterwards.
+- [x] `uv run poe check` passes. The import contracts confirm `http` reaches adapters only through `bootstrap`.
+- [x] `curl -X POST localhost:8000/api/v1/route-plans` with a real key returns a plan or a contract error.
+- [x] Breaking `risk_rules.json` locally makes `uv run python manage.py check` fail with `routing.E001`. Restore the file afterwards.
 
 ## Not in this session
 

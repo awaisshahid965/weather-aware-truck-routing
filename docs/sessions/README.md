@@ -86,7 +86,7 @@ Response ─► Route cards (12) · Route map (13) · Heatmap slider (14)
 | 05 | [Forecast adapter, forecast at ETA](05-forecast-adapter.md) | Backend domain + adapter | FR-02 | 01, 04 | [x] |
 | 06 | [Corridor heatmap data](06-corridor-heatmap.md) | Backend domain | FR-06 | 02, 05 | [x] |
 | 07 | [PlanTrip service](07-plan-trip-service.md) | Backend service | FR-01–04, 06 | 01–06 | [x] |
-| 08 | [Route plans API](08-route-plans-api.md) | Backend HTTP | Inputs, all FR data | 07 | [ ] |
+| 08 | [Route plans API](08-route-plans-api.md) | Backend HTTP | Inputs, all FR data | 07 | [x] |
 | 09 | [Place search](09-place-search.md) | Backend slice | Inputs | 08 | [ ] |
 | 10 | [Frontend contract and state](10-frontend-contract-state.md) | Frontend | — | contract | [ ] |
 | 11 | [Trip form](11-trip-form.md) | Frontend | Inputs | 10 | [ ] |
