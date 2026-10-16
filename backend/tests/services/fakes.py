@@ -4,7 +4,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from routing.domain.models import ONE_HOUR, GeoPoint, HourlySeries, RouteCandidate
+from routing.domain.models import ONE_HOUR, GeoPoint, HourlySeries, PlaceMatch, RouteCandidate
 from routing.domain.risk import RiskRules
 from tests.spec_rules import SPEC_RULES
 
@@ -82,6 +82,21 @@ class FakeForecastProvider:
             rain_in_per_hour=tuple(rain for _, rain, _ in values),
             snow_in_per_hour=tuple(snow for _, _, snow in values),
         )
+
+
+class FakeGeocoder:
+    """Returns `matches` for every query, cut to the limit asked for, as the real adapter does."""
+
+    def __init__(self, matches: Sequence[PlaceMatch] = (), *, error: Exception | None = None) -> None:
+        self.matches = list(matches)
+        self.error = error
+        self.calls: list[tuple[str, int]] = []
+
+    def search(self, query: str, limit: int) -> list[PlaceMatch]:
+        self.calls.append((query, limit))
+        if self.error is not None:
+            raise self.error
+        return self.matches[:limit]
 
 
 class FakeRiskRulesSource:

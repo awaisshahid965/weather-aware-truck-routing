@@ -1,0 +1,36 @@
+{
+  "items": [
+    {
+      "title": "Pittsburgh, PA, United States",
+      "id": "here:cm:namedplace:21010974",
+      "resultType": "locality",
+      "localityType": "city",
+      "address": {
+        "label": "Pittsburgh, PA, United States",
+        "countryCode": "USA",
+        "countryName": "United States",
+        "stateCode": "PA",
+        "state": "Pennsylvania",
+        "county": "Allegheny",
+        "city": "Pittsburgh",
+        "postalCode": "15219"
+      },
+      "position": {
+        "lat": 40.43851,
+        "lng": -79.99734
+      },
+      "mapView": {
+        "west": -80.26877,
+        "south": 40.2952,
+        "east": -79.69904,
+        "north": 40.59289
+      },
+      "scoring": {
+        "queryScore": 1.0,
+        "fieldScore": {
+          "city": 1.0
+        }
+      }
+    }
+  ]
+}

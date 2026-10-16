@@ -13,11 +13,13 @@ import httpx
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
+from routing.adapters.here_geocoder import HereGeocoder
 from routing.adapters.here_router import HereRouter
 from routing.adapters.json_risk_rules import JsonRiskRules
 from routing.adapters.open_meteo_forecast import OpenMeteoForecast
 from routing.ports.risk_rules import RiskRulesSource
 from routing.services.plan_trip import PlanTripService
+from routing.services.search_places import SearchPlacesService
 
 MAX_ROUTE_MILES = 2_500
 MAX_HEATMAP_POINTS = 90
@@ -59,6 +61,14 @@ def get_plan_trip_service() -> PlanTripService:
 
 
 @cache
+def get_search_places_service() -> SearchPlacesService:
+    """Built on first use, like the plan service, and sharing its HTTP client."""
+    return SearchPlacesService(
+        HereGeocoder(_http_client(), _here_api_key(), deadline_seconds=GEOCODING_DEADLINE_SECONDS)
+    )
+
+
+@cache
 def _http_client() -> httpx.Client:
     """One pooled client per process, shared by every adapter.
 
@@ -72,5 +82,7 @@ def _http_client() -> httpx.Client:
 def _here_api_key() -> str:
     api_key: str = settings.HERE_API_KEY
     if not api_key:
-        raise ImproperlyConfigured('HERE_API_KEY is empty. Set it in backend/.env (see .env.example) to plan trips.')
+        raise ImproperlyConfigured(
+            'HERE_API_KEY is empty. Set it in backend/.env (see .env.example) to plan trips and search places.'
+        )
     return api_key

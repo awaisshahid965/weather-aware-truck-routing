@@ -1,11 +1,12 @@
-"""The route plans request and response, with the contract's camelCase field names.
+"""The API's requests and responses, with the contract's camelCase field names.
 
 Parsing checks each field's type, format and range. Business rules, such as a future
-departure or distinct endpoints, stay in the service. Only this layer writes `[lon, lat]`.
+departure, distinct endpoints or a long enough search, stay in the services. Only this
+layer writes `[lon, lat]`.
 """
 
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from functools import cache
 from typing import Any
@@ -14,7 +15,7 @@ from zoneinfo import available_timezones
 from rest_framework import serializers
 
 from routing.domain.geometry import simplify
-from routing.domain.models import AssessedCheckpoint, GeoPoint, HeatmapFrame, RouteCandidate
+from routing.domain.models import AssessedCheckpoint, GeoPoint, HeatmapFrame, PlaceMatch, RouteCandidate
 from routing.domain.sampling import CHECKPOINT_INTERVALS_MILES
 from routing.services.plan_trip import Place, PlannedRoute, PlanTripInput, TripPlan
 
@@ -78,6 +79,11 @@ class PlaceSerializer(serializers.Serializer[None]):
         }
 
 
+class PlaceQuerySerializer(serializers.Serializer[None]):
+    # Kept as sent: the service trims it and owns the length rules, so every client hears the same message.
+    q = serializers.CharField(trim_whitespace=False, allow_blank=True)
+
+
 class RoutePlanRequestSerializer(serializers.Serializer[None]):
     def get_fields(self) -> dict[str, serializers.Field[Any, Any, Any, Any]]:
         # Declared here, not as attributes, so the names can be the contract's camelCase keys.
@@ -104,6 +110,27 @@ def parse_plan_request(data: object) -> PlanTripInput:
         load_weight_lb=fields['loadWeightLb'],
         checkpoint_interval_miles=fields['checkpointIntervalMiles'],
     )
+
+
+def parse_place_query(params: object) -> str:
+    """The search text from the query string. Raises DRF's `ValidationError` when `q` is missing."""
+    serializer = PlaceQuerySerializer(data=params)
+    serializer.is_valid(raise_exception=True)
+    query: str = serializer.validated_data['q']
+    return query
+
+
+def present_places(matches: Sequence[PlaceMatch]) -> list[dict[str, object]]:
+    """The contract's place list. The provider id passes through unchanged and is never followed."""
+    return [
+        {
+            'id': match.place_id,
+            'label': match.label,
+            'latitude': _coordinate(match.point.latitude),
+            'longitude': _coordinate(match.point.longitude),
+        }
+        for match in matches
+    ]
 
 
 def present_trip_plan(plan: TripPlan) -> dict[str, object]:

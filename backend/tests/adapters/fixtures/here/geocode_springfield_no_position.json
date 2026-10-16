@@ -1,0 +1,160 @@
+{
+  "items": [
+    {
+      "title": "Springfield, IL, United States",
+      "id": "here:cm:namedplace:21004800",
+      "resultType": "locality",
+      "localityType": "city",
+      "address": {
+        "label": "Springfield, IL, United States",
+        "countryCode": "USA",
+        "countryName": "United States",
+        "stateCode": "IL",
+        "state": "Illinois",
+        "county": "Sangamon",
+        "city": "Springfield",
+        "postalCode": "62701"
+      },
+      "position": {
+        "lat": 39.8013,
+        "lng": -89.6436
+      },
+      "mapView": {
+        "west": -89.77319,
+        "south": 39.65361,
+        "east": -89.56855,
+        "north": 39.87426
+      },
+      "scoring": {
+        "queryScore": 1.0,
+        "fieldScore": {
+          "city": 1.0
+        }
+      }
+    },
+    {
+      "title": "Springfield, MO, United States",
+      "id": "here:cm:namedplace:21021389",
+      "resultType": "locality",
+      "localityType": "city",
+      "address": {
+        "label": "Springfield, MO, United States",
+        "countryCode": "USA",
+        "countryName": "United States",
+        "stateCode": "MO",
+        "state": "Missouri",
+        "county": "Greene",
+        "city": "Springfield",
+        "postalCode": "65806"
+      },
+      "mapView": {
+        "west": -93.41318,
+        "south": 37.09244,
+        "east": -93.17855,
+        "north": 37.27705
+      },
+      "scoring": {
+        "queryScore": 1.0,
+        "fieldScore": {
+          "city": 1.0
+        }
+      }
+    },
+    {
+      "title": "Springfield, VA, United States",
+      "id": "here:cm:namedplace:21022880",
+      "resultType": "locality",
+      "localityType": "city",
+      "address": {
+        "label": "Springfield, VA, United States",
+        "countryCode": "USA",
+        "countryName": "United States",
+        "stateCode": "VA",
+        "state": "Virginia",
+        "county": "Fairfax",
+        "city": "Springfield",
+        "postalCode": "22150"
+      },
+      "position": {
+        "lat": 38.77917,
+        "lng": -77.19166
+      },
+      "mapView": {
+        "west": -77.27703,
+        "south": 38.71964,
+        "east": -77.1516,
+        "north": 38.81211
+      },
+      "scoring": {
+        "queryScore": 1.0,
+        "fieldScore": {
+          "city": 1.0
+        }
+      }
+    },
+    {
+      "title": "Springfield, MA, United States",
+      "id": "here:cm:namedplace:21014472",
+      "resultType": "locality",
+      "localityType": "city",
+      "address": {
+        "label": "Springfield, MA, United States",
+        "countryCode": "USA",
+        "countryName": "United States",
+        "stateCode": "MA",
+        "state": "Massachusetts",
+        "county": "Hampden",
+        "city": "Springfield",
+        "postalCode": "01103"
+      },
+      "position": {
+        "lat": 42.10125,
+        "lng": -72.58929
+      },
+      "mapView": {
+        "west": -72.6221,
+        "south": 42.06371,
+        "east": -72.47102,
+        "north": 42.16214
+      },
+      "scoring": {
+        "queryScore": 1.0,
+        "fieldScore": {
+          "city": 1.0
+        }
+      }
+    },
+    {
+      "title": "Springfield, MB, Canada",
+      "id": "here:cm:namedplace:21163984",
+      "resultType": "locality",
+      "localityType": "city",
+      "address": {
+        "label": "Springfield, MB, Canada",
+        "countryCode": "CAN",
+        "countryName": "Canada",
+        "stateCode": "MB",
+        "state": "Manitoba",
+        "county": "Manitoba",
+        "city": "Springfield",
+        "postalCode": "R5L"
+      },
+      "position": {
+        "lat": 49.86807,
+        "lng": -96.63752
+      },
+      "mapView": {
+        "west": -97.02702,
+        "south": 49.7958,
+        "east": -96.35674,
+        "north": 50.06298
+      },
+      "scoring": {
+        "queryScore": 1.0,
+        "fieldScore": {
+          "city": 1.0
+        }
+      }
+    }
+  ]
+}

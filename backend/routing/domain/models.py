@@ -104,6 +104,21 @@ class GeoPoint:
 
 
 @dataclass(frozen=True, slots=True)
+class PlaceMatch:
+    """A place a search found. It always has coordinates: a route plan uses them, never the label."""
+
+    place_id: str  # opaque provider id; the API calls it `id`
+    label: str
+    point: GeoPoint
+
+    def __post_init__(self) -> None:
+        if not self.place_id.strip():
+            raise ValueError('place_id must not be blank')
+        if not self.label.strip():
+            raise ValueError('label must not be blank')
+
+
+@dataclass(frozen=True, slots=True)
 class RouteSection:
     """One provider section. Its length is the distance that counts; the shape only places points along it."""
 

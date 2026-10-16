@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from routing import bootstrap
-from routing.http.serializers import parse_plan_request, present_trip_plan
+from routing.http.serializers import parse_place_query, parse_plan_request, present_places, present_trip_plan
 
 
 class RoutePlansView(APIView):
@@ -13,3 +13,9 @@ class RoutePlansView(APIView):
         # Through the module, so tests can replace the provider function.
         plan = bootstrap.get_plan_trip_service().run(parse_plan_request(request.data))
         return Response(present_trip_plan(plan))
+
+
+class PlacesView(APIView):
+    def get(self, request: Request) -> Response:
+        matches = bootstrap.get_search_places_service().run(parse_place_query(request.query_params))
+        return Response(present_places(matches))
