@@ -6,7 +6,7 @@
 | Needs | 01–14 |
 | Layer | Both |
 | Branch | `test/acceptance` · commit types `test(backend)`, `test(frontend)`, `docs` |
-| Files | `backend/tests/http/test_route_plan_end_to_end.py`, `frontend/tests/fixtures/route-plan.json`, `frontend/src/shared/components/trip-planner/trip-planner.test.tsx`, root `README.md` (policy and traceability sections only) |
+| Files | `backend/tests/http/test_route_plan_end_to_end.py`, `backend/tests/adapters/fixtures/open_meteo/trip_window.json`, `frontend/tests/fixtures/route-plan.json`, `frontend/src/shared/components/trip-planner/trip-planner.acceptance.test.tsx`, root `README.md` (policy and traceability sections only) |
 
 ## Goal
 
@@ -16,15 +16,18 @@ Prove each acceptance criterion with a named test. Write down every policy we ch
 
 ### 1. Deterministic end-to-end test (backend)
 
-- Use the recorded HERE and Open-Meteo fixtures (Sessions 04, 05). The Open-Meteo fixture must cover the trip window.
+- Use the recorded HERE fixture (Session 04). Record one Open-Meteo answer that covers the whole trip window, as `open_meteo/trip_window.json`.
+  - HERE's fixture is for Sara's 2026-11-17 departure, past Open-Meteo's 16-day range. Record the forecast for a near departure instead. The HERE adapter ignores the departure in its fixture.
 - Build the real adapters on an `httpx.MockTransport` that serves the fixtures. Inject them by overriding `bootstrap.get_plan_trip_service`.
 - `POST /api/v1/route-plans` through the Django test client.
 - Assert: 3 routes, checkpoint spacing, 49 frames, the recommended route id and its summary numbers.
-- Save the response as `frontend/tests/fixtures/route-plan.json`.
+- Save the response as `frontend/tests/fixtures/route-plan.json`. A test keeps the two equal. Rewrite it with `UPDATE_FIXTURES=1`, as the test's docstring says.
 
 ### 2. Deterministic end-to-end test (frontend)
 
-- Render the planner with the saved response (mock `TripService.createPlan` to return it).
+- Render the planner with the saved response. Stub `fetch` to return it, so the real service and response check run.
+- Use its own test file. `trip-planner.test.tsx` replaces the whole map, and `vi.mock` applies to a whole file. Here only MapLibre is replaced, so the real legend and slider render.
+- Enter the trip the backend test posts, and assert the request body matches it.
 - Assert: three cards, the recommendation badge, the legend, and the slider labels at 0 and 48.
 
 ### 3. Live smoke run
@@ -39,7 +42,7 @@ Each line must point to a test that passes:
 - [ ] Fewer than 3 routes → `INSUFFICIENT_ROUTES` with the count, shown in the UI.
 - [ ] All routes No Travel → no recommendation, banner shown.
 - [ ] Null forecast at a used hour → `FORECAST_UNAVAILABLE`, no partial plan.
-- [ ] Trip ending beyond forecast coverage → `FORECAST_UNAVAILABLE`.
+- [ ] Trip ending beyond forecast coverage → `VALIDATION_ERROR` on `departureAt` ([contract → `POST /api/v1/route-plans`](contract.md#post-apiv1route-plans)).
 - [ ] Route shorter than the interval → 2 checkpoints.
 - [ ] Nonexistent and ambiguous local times → form errors.
 - [ ] Provider timeout → 504, UI message with retry.
