@@ -112,7 +112,7 @@ def build_frames(
 
 ## Done when
 
-- [ ] `uv run poe check` passes.
+- [x] `uv run poe check` passes.
 
 ## Not in this session
 

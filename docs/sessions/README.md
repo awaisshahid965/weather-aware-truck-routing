@@ -84,7 +84,7 @@ Response ─► Route cards (12) · Route map (13) · Heatmap slider (14)
 | 03 | [Summaries and recommendation](03-route-ranking.md) | Backend domain | FR-04 | 01, 02 | [x] |
 | 04 | [HERE routing adapter](04-here-routing-adapter.md) | Backend port + adapter | FR-01 | 02 | [x] |
 | 05 | [Forecast adapter, forecast at ETA](05-forecast-adapter.md) | Backend domain + adapter | FR-02 | 01, 04 | [x] |
-| 06 | [Corridor heatmap data](06-corridor-heatmap.md) | Backend domain | FR-06 | 02, 05 | [ ] |
+| 06 | [Corridor heatmap data](06-corridor-heatmap.md) | Backend domain | FR-06 | 02, 05 | [x] |
 | 07 | [PlanTrip service](07-plan-trip-service.md) | Backend service | FR-01–04, 06 | 01–06 | [ ] |
 | 08 | [Route plans API](08-route-plans-api.md) | Backend HTTP | Inputs, all FR data | 07 | [ ] |
 | 09 | [Place search](09-place-search.md) | Backend slice | Inputs | 08 | [ ] |
