@@ -143,7 +143,7 @@ const useRouteLayers = ({
         map.setFilter(CHECKPOINT_SELECTED_LAYER_ID, checkpointFilter(selectedCheckpoint))
     }, [selectedCheckpoint, styleRevision])
 
-    return { containerRef }
+    return { containerRef, mapRef, styleRevision }
 }
 
 export default useRouteLayers

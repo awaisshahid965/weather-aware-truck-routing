@@ -1,6 +1,6 @@
 import type { FeatureCollection, LineString, Point } from 'geojson'
 import type { RiskDriver, RiskLevel } from '@/shared/types/risk'
-import type { RoutePlan } from '@/shared/types/route-plan'
+import type { HeatmapFrame, RoutePlan } from '@/shared/types/route-plan'
 
 /* Plan data as GeoJSON for MapLibre. Coordinates stay in the contract's `[longitude, latitude]` order. */
 
@@ -19,6 +19,11 @@ export interface CheckpointFeatureProperties {
     rainInPerHour: number
     snowInPerHour: number
     drivers: RiskDriver[]
+}
+
+export interface HeatmapFeatureProperties {
+    /** 0–4, the index of the point's level in `RISK_LEVELS`. */
+    riskScore: number
 }
 
 /** `[west, south, east, north]`, as `fitBounds` takes it. */
@@ -67,6 +72,21 @@ export const checkpointsToFeatures = memoizeByPlan((plan): FeatureCollection<Poi
         })),
     ),
 }))
+
+/** One point per heatmap point of a frame. Only the score goes along: the layer weighs by it and draws nothing else. */
+export const frameToFeatures = (frame: HeatmapFrame): FeatureCollection<Point, HeatmapFeatureProperties> => ({
+    type: 'FeatureCollection',
+    features: frame.points.map(({ longitude, latitude, riskScore }) => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [longitude, latitude] },
+        properties: { riskScore },
+    })),
+})
+
+/** Every frame of the plan, built once. Index `k` is offset `+k h`, so the slider picks one without rebuilding. */
+export const heatmapFrameCollections = memoizeByPlan((plan): FeatureCollection<Point, HeatmapFeatureProperties>[] =>
+    plan.heatmap.frames.map(frameToFeatures),
+)
 
 /** The box around every route, or `null` when the plan has no coordinates. */
 export const routesBounds = (plan: RoutePlan): Bounds | null => {

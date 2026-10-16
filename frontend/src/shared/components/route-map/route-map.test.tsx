@@ -1,8 +1,9 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import TripService from '@/shared/services/trip-service'
 import type { RoutePlan } from '@/shared/types/route-plan'
-import { checkpointsToFeatures, routesToFeatures } from '@/shared/utils/geojson'
+import { checkpointsToFeatures, heatmapFrameCollections, routesToFeatures } from '@/shared/utils/geojson'
 import { makeRoutePlan } from '../../../../tests/factories/route-plan'
 import RouteMap from './route-map'
 
@@ -15,6 +16,7 @@ const { FakeMap } = vi.hoisted(() => {
         readonly listeners = new Map<string, Listener>()
         readonly sources = new Map<string, { spec: unknown; setData: ReturnType<typeof vi.fn> }>()
         readonly layerIds: string[] = []
+        readonly layerSpecs = new Map<string, unknown>()
         readonly canvas = { style: { cursor: '' } }
 
         constructor(readonly options: Record<string, unknown>) {
@@ -34,13 +36,15 @@ const { FakeMap } = vi.hoisted(() => {
             this.sources.set(id, { spec, setData: vi.fn() })
         })
         getSource = vi.fn((id: string) => this.sources.get(id))
-        addLayer = vi.fn(({ id }: { id: string }) => {
-            this.layerIds.push(id)
+        addLayer = vi.fn((layer: { id: string }) => {
+            this.layerIds.push(layer.id)
+            this.layerSpecs.set(layer.id, layer)
         })
         getLayer = vi.fn((id: string) => (this.layerIds.includes(id) ? { id } : undefined))
         setFeatureState = vi.fn()
         removeFeatureState = vi.fn()
         setFilter = vi.fn()
+        setLayoutProperty = vi.fn()
         fitBounds = vi.fn()
         getCanvas = vi.fn(() => this.canvas)
         remove = vi.fn()
@@ -59,6 +63,16 @@ const { FakeMap } = vi.hoisted(() => {
 
 vi.mock('maplibre-gl', () => ({ MapLibreMap: FakeMap, NavigationControl: class {}, setWorkerUrl: vi.fn() }))
 
+// Animation frames run only when a test says so, so it can tell one update per frame from one per change.
+let pendingFrames = new Map<number, FrameRequestCallback>()
+let nextFrameId = 1
+
+const runAnimationFrame = () => {
+    const callbacks = [...pendingFrames.values()]
+    pendingFrames = new Map()
+    act(() => callbacks.forEach((callback) => callback(performance.now())))
+}
+
 const onlyMap = () => {
     expect(FakeMap.instances).toHaveLength(1)
     return FakeMap.instances[0] as InstanceType<typeof FakeMap>
@@ -71,6 +85,21 @@ const renderMap = (plan: RoutePlan = makeRoutePlan(), selectedRouteId = 'route-2
     return { view, map, user: userEvent.setup() }
 }
 
+const hourSlider = () => screen.getByRole('slider', { name: 'Forecast hour' })
+
+const moveSlider = (hour: number) => fireEvent.change(hourSlider(), { target: { value: String(hour) } })
+
+const HEATMAP_LAYERS = ['heatmap-risk-moderate', 'heatmap-risk-high', 'heatmap-risk-severe', 'heatmap-risk-no-travel']
+
+/** The visibility each heatmap layer was last given. */
+const heatmapVisibility = (map: InstanceType<typeof FakeMap>) =>
+    HEATMAP_LAYERS.map(
+        (id) =>
+            map.setLayoutProperty.mock.calls.filter(([layerId]) => layerId === id).at(-1)?.[2] as string | undefined,
+    )
+
+const clearSetData = (map: InstanceType<typeof FakeMap>) => map.sources.forEach((source) => source.setData.mockClear())
+
 const checkpointFeature = (routeId: string, mile: number) => ({ properties: { routeId, mile } })
 
 /** The value next to a term in the checkpoint details. */
@@ -78,7 +107,14 @@ const detail = (term: string) => screen.getByText(term, { selector: 'dt' }).next
 
 beforeEach(() => {
     FakeMap.instances = []
+    pendingFrames = new Map()
     vi.stubGlobal('matchMedia', () => ({ matches: false }))
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+        const id = nextFrameId++
+        pendingFrames.set(id, callback)
+        return id
+    })
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => pendingFrames.delete(id))
 })
 
 afterEach(() => {
@@ -92,7 +128,7 @@ describe('RouteMap', () => {
         expect(map.options).toMatchObject({ style: 'http://tiles.test/style.json' })
         expect(map.options).not.toHaveProperty('attributionControl', false)
         expect(map.layerIds).toEqual([
-            'heatmap-risk',
+            ...HEATMAP_LAYERS,
             'route-casing',
             'route-lines',
             'route-selected',
@@ -120,15 +156,17 @@ describe('RouteMap', () => {
 
     it('calls setData once per source for a new plan, without creating a new map', () => {
         const { view, map } = renderMap()
-        map.sources.forEach((source) => source.setData.mockClear())
+        runAnimationFrame()
+        clearSetData(map)
         map.fitBounds.mockClear()
         const next = makeRoutePlan()
 
         view.rerender(<RouteMap plan={next} selectedRouteId="route-2" />)
+        runAnimationFrame()
 
         expect(map.setDataCalls('routes')).toEqual([[routesToFeatures(next)]])
         expect(map.setDataCalls('checkpoints')).toEqual([[checkpointsToFeatures(next)]])
-        expect(map.setDataCalls('heatmap')).toEqual([])
+        expect(map.setDataCalls('heatmap')).toEqual([[heatmapFrameCollections(next)[0]]])
         expect(map.fitBounds).toHaveBeenCalledTimes(1)
         expect(FakeMap.instances).toHaveLength(1)
     })
@@ -150,14 +188,20 @@ describe('RouteMap', () => {
     })
 
     it('fills the sources again after a style reload, without moving the camera', () => {
-        const { map } = renderMap()
-        map.sources.forEach((source) => source.setData.mockClear())
+        const plan = makeRoutePlan()
+        const { map } = renderMap(plan)
+        runAnimationFrame()
+        moveSlider(12)
+        runAnimationFrame()
+        clearSetData(map)
         map.fitBounds.mockClear()
 
         map.fire('style.load')
+        runAnimationFrame()
 
         expect(map.setDataCalls('routes')).toHaveLength(1)
         expect(map.setDataCalls('checkpoints')).toHaveLength(1)
+        expect(map.setDataCalls('heatmap')).toEqual([[heatmapFrameCollections(plan)[12]]])
         expect(map.fitBounds).not.toHaveBeenCalled()
     })
 
@@ -239,6 +283,144 @@ describe('RouteMap', () => {
                 .getAllByRole('listitem')
                 .map((item) => item.textContent),
         ).toEqual(['Low', 'Moderate', 'High', 'Severe', 'No Travel'])
+    })
+
+    describe('heatmap timeline', () => {
+        it('draws each level in its own layer, from that level up, with Low left clear', () => {
+            const { map } = renderMap()
+            const layers = HEATMAP_LAYERS.map((id) => map.layerSpecs.get(id) as Record<string, unknown>)
+
+            expect(layers.map(({ filter }) => filter)).toEqual([
+                ['>=', ['get', 'riskScore'], 1],
+                ['>=', ['get', 'riskScore'], 2],
+                ['>=', ['get', 'riskScore'], 3],
+                ['>=', ['get', 'riskScore'], 4],
+            ])
+            layers.forEach((layer) => expect(layer).toMatchObject({ type: 'heatmap', source: 'heatmap' }))
+            // Clear where no point reaches, then the level's own color.
+            expect(layers.map(({ paint }) => (paint as Record<string, unknown>)['heatmap-color'])).toEqual(
+                ['#facc15', '#f97316', '#b91c1c', '#3b0764'].map((color) => [
+                    'interpolate',
+                    ['linear'],
+                    ['heatmap-density'],
+                    0,
+                    `${color}00`,
+                    0.2,
+                    color,
+                ]),
+            )
+        })
+
+        it('doubles the heatmap radius with each zoom level, so it keeps its size on the ground', () => {
+            const { map } = renderMap()
+            const paint = (map.layerSpecs.get('heatmap-risk-severe') as { paint: Record<string, unknown> }).paint
+            const radius = paint['heatmap-radius'] as unknown[]
+            const [lowZoom, lowRadius, highZoom, highRadius] = radius.slice(3) as number[]
+
+            expect(radius.slice(0, 3)).toEqual(['interpolate', ['exponential', 2], ['zoom']])
+            expect((highRadius ?? 0) / (lowRadius ?? 1)).toBeCloseTo(2 ** ((highZoom ?? 0) - (lowZoom ?? 0)))
+            // 25 mi near latitude 40, in pixels at zoom 2: 25 / 37.25 × 4.
+            expect(lowRadius).toBeCloseTo(2.68, 2)
+            expect(paint['heatmap-opacity']).toBe(0.6)
+        })
+
+        it('shows departure hour on the heatmap once the style loads', () => {
+            const plan = makeRoutePlan()
+            const { map } = renderMap(plan)
+            expect(map.setDataCalls('heatmap')).toEqual([])
+
+            runAnimationFrame()
+
+            expect(map.setDataCalls('heatmap')).toEqual([[heatmapFrameCollections(plan)[0]]])
+            expect(heatmapVisibility(map)).toEqual(['visible', 'visible', 'visible', 'visible'])
+        })
+
+        it('sets the moved-to hour’s collection, without a request', () => {
+            const createPlan = vi.spyOn(TripService, 'createPlan')
+            const fetch = vi.fn()
+            vi.stubGlobal('fetch', fetch)
+            const plan = makeRoutePlan()
+            const { map } = renderMap(plan)
+            runAnimationFrame()
+            clearSetData(map)
+
+            moveSlider(18)
+            runAnimationFrame()
+
+            expect(map.setDataCalls('heatmap')).toEqual([[heatmapFrameCollections(plan)[18]]])
+            expect(hourSlider()).toHaveAttribute('aria-valuetext', '+18 h · Wed 2:00 AM EST')
+            expect(createPlan).not.toHaveBeenCalled()
+            expect(fetch).not.toHaveBeenCalled()
+        })
+
+        it('sends only the latest hour when several changes land in one frame', () => {
+            const plan = makeRoutePlan()
+            const { map } = renderMap(plan)
+            runAnimationFrame()
+            clearSetData(map)
+
+            moveSlider(1)
+            moveSlider(2)
+            moveSlider(3)
+            runAnimationFrame()
+
+            expect(map.setDataCalls('heatmap')).toEqual([[heatmapFrameCollections(plan)[3]]])
+        })
+
+        it('leaves routes and checkpoints alone while the slider moves', async () => {
+            const { map, user } = renderMap()
+            await user.click(screen.getByRole('button', { name: /^50\.0 mi/ }))
+            runAnimationFrame()
+            clearSetData(map)
+            map.setFeatureState.mockClear()
+
+            moveSlider(12)
+            runAnimationFrame()
+            moveSlider(48)
+            runAnimationFrame()
+
+            expect(map.setDataCalls('routes')).toEqual([])
+            expect(map.setDataCalls('checkpoints')).toEqual([])
+            expect(map.setFeatureState).not.toHaveBeenCalled()
+            // Still the risk at the truck's own ETA, not at the slider's hour.
+            expect(detail('Risk')).toHaveTextContent('Moderate')
+            expect(detail('Arrives')).toHaveTextContent('Tue 8:53 AM EST')
+        })
+
+        it('hides every heatmap layer and shows them again without new data', async () => {
+            const { map, user } = renderMap()
+            runAnimationFrame()
+            clearSetData(map)
+            const toggle = screen.getByRole('checkbox', { name: 'Show heatmap' })
+
+            await user.click(toggle)
+            expect(heatmapVisibility(map)).toEqual(['none', 'none', 'none', 'none'])
+
+            await user.click(toggle)
+            expect(heatmapVisibility(map)).toEqual(['visible', 'visible', 'visible', 'visible'])
+
+            runAnimationFrame()
+            map.sources.forEach((source) => expect(source.setData).not.toHaveBeenCalled())
+        })
+
+        it('keeps the heatmap hidden after a style reload', async () => {
+            const { map, user } = renderMap()
+            await user.click(screen.getByRole('checkbox', { name: 'Show heatmap' }))
+            map.setLayoutProperty.mockClear()
+
+            map.fire('style.load')
+
+            expect(map.setLayoutProperty.mock.calls).toEqual(HEATMAP_LAYERS.map((id) => [id, 'visibility', 'none']))
+        })
+
+        it('drops a pending heatmap update on unmount', () => {
+            const { view, map } = renderMap()
+
+            view.unmount()
+            runAnimationFrame()
+
+            expect(map.setDataCalls('heatmap')).toEqual([])
+        })
     })
 
     it('removes the map on unmount', () => {
