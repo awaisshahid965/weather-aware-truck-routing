@@ -347,6 +347,11 @@ def test_the_window_reaches_the_last_eta_when_a_route_takes_longer_than_48_hours
             'departureAt',
             id='heatmap-beyond-forecast-range',
         ),
+        pytest.param(
+            replace(REQUEST, departure_at=datetime(9999, 12, 31, 23, tzinfo=UTC)),
+            'departureAt',
+            id='departure-where-the-calendar-ends',
+        ),
         pytest.param(replace(REQUEST, destination=REQUEST.origin), 'destination', id='same-place'),
         pytest.param(
             replace(REQUEST, destination=Place('Next door', destination_point(PITTSBURGH, 90, 0.05))),
