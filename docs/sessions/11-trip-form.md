@@ -133,7 +133,9 @@ Delete the `.gitkeep` files in `shared/components/` and `shared/ui/`.
 
 ## Pitfalls
 
-- `cacheComponents` is on (scaffold). Reading the clock during render can break prerendering in `next build`. Compute "now" in an effect or an event handler, not in render.
+- `cacheComponents` is on (scaffold). Reading the clock during render can break prerendering in `next build`. Read "now" and the browser's zone through `useSyncExternalStore` with a `null` server snapshot, or in an event handler. Not in render. Not with `setState` in an effect either: `react-hooks/set-state-in-effect` fails the lint.
+- `Intl.supportedValuesOf('timeZone')` leaves out `UTC` in V8. The browser's own zone can be an alias the list leaves out, such as `Asia/Calcutta`. Add both to the options.
+- Testing Library's async helpers (`findBy*`, user-event) wait on a real `setTimeout`. Under `vi.useFakeTimers()` they hang. Drive the debounce tests with `fireEvent`. Elsewhere, `vi.setSystemTime` alone fixes the clock and keeps real timers.
 - Some engines format midnight as `24` unless you set `hourCycle: 'h23'`.
 - `toISOString()` adds `.000`. Strip it to match the contract.
 - The browser's zone is not always the origin's zone. The visible zone label makes that clear to the driver.
