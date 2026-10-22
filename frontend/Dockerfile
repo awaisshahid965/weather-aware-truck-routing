@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
 # --- Dependencies: install exactly what the lockfile records -------------------------
-FROM node:24.22.0-alpine AS deps
+FROM node:26.12.0-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 RUN --mount=type=cache,target=/root/.npm npm ci
 
 # --- Build: compile the standalone server. NEXT_PUBLIC_* values are inlined here. --------
-FROM node:24.22.0-alpine AS build
+FROM node:26.12.0-alpine AS build
 WORKDIR /app
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_MAP_STYLE_URL
@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # --- Runtime: only the standalone output, as the unprivileged `node` user ----------------
-FROM node:24.22.0-alpine AS runtime
+FROM node:26.12.0-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
