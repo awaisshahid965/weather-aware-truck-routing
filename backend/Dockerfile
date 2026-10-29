@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- Build: resolve the locked runtime dependencies into a virtualenv ---------------
-FROM python:3.14.8-slim AS build
+FROM python:3.15.0-slim AS build
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /usr/local/bin/uv
 
@@ -15,7 +15,7 @@ COPY pyproject.toml uv.lock .python-version ./
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev
 
 # --- Runtime: the virtualenv plus the source, run as an unprivileged user ------------------
-FROM python:3.14.8-slim AS runtime
+FROM python:3.15.0-slim AS runtime
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
