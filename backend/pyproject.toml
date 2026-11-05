@@ -10,7 +10,7 @@ dependencies = [
     "flexpolyline==0.1.0", # decodes HERE route geometry
     "gunicorn==26.2.0",
     "httpx==0.28.1",
-    "tzdata==2026.5", # time zone data that does not depend on the OS image
+    "tzdata==2026.6", # time zone data that does not depend on the OS image
 ]
 
 [dependency-groups]
